@@ -5,6 +5,7 @@ struct ContentView: View {
     @State private var input = GameInput()
     @State private var feedback = ArcadeFeedbackController()
     @State private var selectedCharacter = PlayableCharacter.defaultCharacter
+    @State private var hasPassedTitleScreen = false
     @State private var hasChosenCharacter = false
     @State private var lastFrameDate = Date()
     @State private var lastScore = 0
@@ -57,7 +58,7 @@ struct ContentView: View {
                     .padding(.horizontal, 16)
                     .padding(.bottom, 16)
                     }
-                } else {
+                } else if hasPassedTitleScreen {
                     CharacterSelectView(
                         selectedCharacter: selectedCharacter,
                         onSelect: selectCharacter,
@@ -65,6 +66,11 @@ struct ContentView: View {
                     )
                     .transition(.opacity)
                     .zIndex(200)
+                } else {
+                    TitleStartView(onPlay: showCharacterSelect)
+                        .frame(width: viewport.width, height: viewport.height)
+                        .transition(.opacity)
+                        .zIndex(220)
                 }
 
                 if hasChosenCharacter, let experience = controller.activeExperience {
@@ -126,6 +132,11 @@ struct ContentView: View {
             }
             .animation(.snappy(duration: 0.24), value: controller.activeExperience)
         }
+    }
+
+    private func showCharacterSelect() {
+        hasPassedTitleScreen = true
+        feedback.playBlockReveal()
     }
 
     private func selectCharacter(_ character: PlayableCharacter) {
@@ -256,6 +267,164 @@ private struct PlayableCharacter: Identifiable, Equatable {
     ]
 
     static let defaultCharacter = all[7]
+}
+
+private struct TitleStartView: View {
+    let onPlay: () -> Void
+
+    var body: some View {
+        GeometryReader { proxy in
+            let size = proxy.size
+
+            ZStack(alignment: .bottom) {
+                LinearGradient(
+                    colors: [Color(red: 0.16, green: 0.42, blue: 0.58), Color(red: 0.76, green: 0.89, blue: 0.8)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
+
+                Image("TitleVista")
+                    .interpolation(.none)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size.width, height: size.height)
+                    .opacity(0.92)
+                    .clipped()
+
+                Image("TitleForest")
+                    .interpolation(.none)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size.width, height: size.height * 0.62)
+                    .offset(y: 36)
+                    .clipped()
+
+                LinearGradient(
+                    colors: [.black.opacity(0.42), .black.opacity(0.05), .black.opacity(0.52)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
+
+                VStack(spacing: 18) {
+                    Spacer(minLength: max(42, size.height * 0.1))
+
+                    VStack(spacing: 8) {
+                        Image("ArcadeResumeTitle")
+                            .interpolation(.none)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: min(size.width - 32, 420))
+                            .shadow(color: .black.opacity(0.5), radius: 0, x: 0, y: 6)
+
+                    }
+
+                    HStack(spacing: 14) {
+                        ForEach(["CavemanPortrait", "LionPortrait", "FernPortrait", "EggshellPortrait"], id: \.self) { imageName in
+                            Image(imageName)
+                                .interpolation(.none)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 54, height: 54)
+                                .shadow(color: .black.opacity(0.35), radius: 0, x: 0, y: 3)
+                        }
+                    }
+                    .padding(.top, 6)
+
+                    Button(action: onPlay) {
+                        Label("Play", systemImage: "play.fill")
+                            .font(.title3.weight(.black))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: 230)
+                            .padding(.vertical, 13)
+                    }
+                    .buttonStyle(.plain)
+                    .background(Color(red: 0.09, green: 0.18, blue: 0.28).opacity(0.94), in: RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(.white.opacity(0.45), lineWidth: 1.5)
+                    )
+                    .shadow(color: .black.opacity(0.38), radius: 16, x: 0, y: 9)
+
+
+                    Spacer(minLength: max(82, size.height * 0.2))
+                }
+                .padding(.horizontal, 20)
+                .frame(width: size.width, height: size.height)
+            }
+        }
+    }
+
+    private var mountainLayer: some View {
+        HStack(spacing: -24) {
+            ForEach(0..<5, id: \.self) { index in
+                Triangle()
+                    .fill(index.isMultiple(of: 2) ? Color(red: 0.63, green: 0.49, blue: 0.36).opacity(0.5) : Color(red: 0.48, green: 0.42, blue: 0.4).opacity(0.44))
+                    .frame(width: 170, height: 116)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    private var forestLayer: some View {
+        HStack(alignment: .bottom, spacing: 18) {
+            ForEach(0..<11, id: \.self) { index in
+                VStack(spacing: 0) {
+                    Triangle()
+                        .fill(index.isMultiple(of: 2) ? Color(red: 0.13, green: 0.46, blue: 0.28) : Color(red: 0.09, green: 0.36, blue: 0.25))
+                        .frame(width: 50, height: CGFloat(72 + (index % 3) * 12))
+                    Rectangle()
+                        .fill(Color(red: 0.32, green: 0.2, blue: 0.12))
+                        .frame(width: 9, height: 24)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    private var groundLayer: some View {
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(Color(red: 0.2, green: 0.62, blue: 0.32))
+                .frame(height: 18)
+            Rectangle()
+                .fill(Color(red: 0.52, green: 0.3, blue: 0.15))
+                .frame(height: 128)
+                .overlay(alignment: .top) {
+                    HStack(spacing: 18) {
+                        ForEach(0..<14, id: \.self) { index in
+                            RoundedRectangle(cornerRadius: 1)
+                                .fill(index.isMultiple(of: 2) ? Color(red: 0.41, green: 0.22, blue: 0.1) : Color(red: 0.64, green: 0.4, blue: 0.2))
+                                .frame(width: 34, height: 11)
+                        }
+                    }
+                    .padding(.top, 20)
+                }
+        }
+        .ignoresSafeArea(edges: .bottom)
+    }
+
+    private func decorativeCloud(x: CGFloat, y: CGFloat, scale: CGFloat) -> some View {
+        ZStack {
+            Capsule().fill(.white.opacity(0.92)).frame(width: 74, height: 28)
+            Circle().fill(.white.opacity(0.94)).frame(width: 32, height: 32).offset(x: -18, y: -8)
+            Circle().fill(.white.opacity(0.94)).frame(width: 42, height: 42).offset(x: 10, y: -12)
+        }
+        .scaleEffect(scale)
+        .position(x: x, y: y)
+    }
+}
+
+private struct Triangle: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.closeSubpath()
+        return path
+    }
 }
 
 private struct CharacterSelectView: View {
