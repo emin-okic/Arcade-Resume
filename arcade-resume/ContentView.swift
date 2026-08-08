@@ -35,20 +35,27 @@ struct ContentView: View {
 
                     Spacer()
 
-                    if let experience = controller.activeExperience {
-                        ExperienceDetailView(experience: experience) {
-                            controller.selectExperience(nil)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 14)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
-
                     ControlPadView(input: $input) {
                         input.jumpRequested = true
                     }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 16)
+                }
+
+                if let experience = controller.activeExperience {
+                    ZStack {
+                        Color.black.opacity(0.34)
+                            .ignoresSafeArea()
+
+                        ExperienceDetailView(experience: experience, viewport: viewport) {
+                            controller.selectExperience(nil)
+                        }
+                        .position(x: viewport.width / 2, y: viewport.height / 2)
+                    }
+                    .frame(width: viewport.width, height: viewport.height)
+                    .contentShape(Rectangle())
+                    .transition(.opacity)
+                    .zIndex(100)
                 }
             }
             .focusable(true)
@@ -258,59 +265,111 @@ private struct HUDView: View {
 
 private struct ExperienceDetailView: View {
     let experience: ResumeExperience
+    let viewport: CGSize
     let onClose: () -> Void
 
+    private var sheetWidth: CGFloat {
+        min(max(viewport.width - 48, 280), 340)
+    }
+
+    private var sheetHeight: CGFloat {
+        let availableHeight = max(260, viewport.height - 96)
+        let preferredHeight = max(viewport.height * 0.66, 340)
+        return min(min(preferredHeight, availableHeight), 540)
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Job Description")
+                        .font(.caption2.weight(.black))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5)
+                        .background(Color(red: 0.1, green: 0.52, blue: 0.33), in: Capsule())
+
                     Text(experience.title)
-                        .font(.headline)
-                    Text("\(experience.organization) • \(experience.location) • \(experience.period)")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .font(.system(.headline, design: .rounded, weight: .bold))
+                        .foregroundStyle(Color(red: 0.08, green: 0.13, blue: 0.2))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text(experience.organization)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color(red: 0.12, green: 0.35, blue: 0.66))
+
+                    Text("\(experience.location) • \(experience.period)")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Color(red: 0.37, green: 0.44, blue: 0.54))
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Spacer()
+                Spacer(minLength: 8)
 
                 Button(action: onClose) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 13, weight: .bold))
-                        .frame(width: 30, height: 30)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color(red: 0.08, green: 0.13, blue: 0.2))
+                        .frame(width: 34, height: 34)
+                        .background(Color(red: 0.92, green: 0.95, blue: 0.98), in: Circle())
                 }
-                .buttonStyle(.bordered)
-                .accessibilityLabel("Close details")
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close job description")
             }
 
-            Text(experience.summary)
-                .font(.subheadline.weight(.medium))
-
-            VStack(alignment: .leading, spacing: 5) {
-                ForEach(experience.responsibilities, id: \.self) { responsibility in
-                    Label(responsibility, systemImage: "checkmark.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.primary)
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text(experience.summary)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(Color(red: 0.12, green: 0.16, blue: 0.24))
                         .fixedSize(horizontal: false, vertical: true)
+
+                    VStack(alignment: .leading, spacing: 9) {
+                        ForEach(experience.responsibilities, id: \.self) { responsibility in
+                            Label {
+                                Text(responsibility)
+                                    .font(.caption.weight(.medium))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            } icon: {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .foregroundStyle(Color(red: 0.1, green: 0.52, blue: 0.33))
+                            }
+                            .foregroundStyle(Color(red: 0.12, green: 0.16, blue: 0.24))
+                        }
+                    }
+
+                    FlowLayout(spacing: 7) {
+                        ForEach(experience.skills, id: \.self) { skill in
+                            Text(skill)
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(Color(red: 0.08, green: 0.22, blue: 0.38))
+                                .padding(.horizontal, 9)
+                                .padding(.vertical, 6)
+                                .background(Color(red: 0.88, green: 0.94, blue: 1), in: Capsule())
+                        }
+                    }
                 }
+                .padding(.vertical, 2)
             }
 
-            FlowLayout(spacing: 6) {
-                ForEach(experience.skills, id: \.self) { skill in
-                    Text(skill)
-                        .font(.caption2.weight(.bold))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
-                        .background(Color(red: 0.88, green: 0.94, blue: 1), in: Capsule())
-                }
+            Button(action: onClose) {
+                Text("Close")
+                    .font(.subheadline.weight(.bold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 11)
             }
+            .buttonStyle(.borderedProminent)
+            .tint(Color(red: 0.12, green: 0.22, blue: 0.36))
+            .accessibilityLabel("Close job description")
         }
-        .padding(14)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .padding(18)
+        .frame(width: sheetWidth, height: sheetHeight, alignment: .topLeading)
+        .background(Color.white, in: RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(.white.opacity(0.35), lineWidth: 1)
+                .stroke(Color(red: 0.78, green: 0.86, blue: 0.94), lineWidth: 1.5)
         )
+        .shadow(color: .black.opacity(0.35), radius: 24, x: 0, y: 14)
     }
 }
 
