@@ -24,25 +24,25 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		C50FA5623027A14F00491504 /* gamified-resume.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "gamified-resume.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		C50FA5713027A15000491504 /* gamified-resumeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "gamified-resumeTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
-		C50FA57B3027A15000491504 /* gamified-resumeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "gamified-resumeUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		C50FA5623027A14F00491504 /* arcade-resume.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "arcade-resume.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		C50FA5713027A15000491504 /* arcade-resumeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "arcade-resumeTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		C50FA57B3027A15000491504 /* arcade-resumeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "arcade-resumeUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		C50FA5643027A14F00491504 /* gamified-resume */ = {
+		C50FA5643027A14F00491504 /* arcade-resume */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "gamified-resume";
+			path = "arcade-resume";
 			sourceTree = "<group>";
 		};
-		C50FA5743027A15000491504 /* gamified-resumeTests */ = {
+		C50FA5743027A15000491504 /* arcade-resumeTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "gamified-resumeTests";
+			path = "arcade-resumeTests";
 			sourceTree = "<group>";
 		};
-		C50FA57E3027A15000491504 /* gamified-resumeUITests */ = {
+		C50FA57E3027A15000491504 /* arcade-resumeUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "gamified-resumeUITests";
+			path = "arcade-resumeUITests";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -75,9 +75,9 @@
 		C50FA5593027A14F00491504 = {
 			isa = PBXGroup;
 			children = (
-				C50FA5643027A14F00491504 /* gamified-resume */,
-				C50FA5743027A15000491504 /* gamified-resumeTests */,
-				C50FA57E3027A15000491504 /* gamified-resumeUITests */,
+				C50FA5643027A14F00491504 /* arcade-resume */,
+				C50FA5743027A15000491504 /* arcade-resumeTests */,
+				C50FA57E3027A15000491504 /* arcade-resumeUITests */,
 				C50FA5633027A14F00491504 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -85,9 +85,9 @@
 		C50FA5633027A14F00491504 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				C50FA5623027A14F00491504 /* gamified-resume.app */,
-				C50FA5713027A15000491504 /* gamified-resumeTests.xctest */,
-				C50FA57B3027A15000491504 /* gamified-resumeUITests.xctest */,
+				C50FA5623027A14F00491504 /* arcade-resume.app */,
+				C50FA5713027A15000491504 /* arcade-resumeTests.xctest */,
+				C50FA57B3027A15000491504 /* arcade-resumeUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -95,9 +95,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		C50FA5613027A14F00491504 /* gamified-resume */ = {
+		C50FA5613027A14F00491504 /* arcade-resume */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = C50FA5853027A15000491504 /* Build configuration list for PBXNativeTarget "gamified-resume" */;
+			buildConfigurationList = C50FA5853027A15000491504 /* Build configuration list for PBXNativeTarget "arcade-resume" */;
 			buildPhases = (
 				C50FA55E3027A14F00491504 /* Sources */,
 				C50FA55F3027A14F00491504 /* Frameworks */,
@@ -108,18 +108,18 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				C50FA5643027A14F00491504 /* gamified-resume */,
+				C50FA5643027A14F00491504 /* arcade-resume */,
 			);
-			name = "gamified-resume";
+			name = "arcade-resume";
 			packageProductDependencies = (
 			);
 			productName = "gamified-resume";
-			productReference = C50FA5623027A14F00491504 /* gamified-resume.app */;
+			productReference = C50FA5623027A14F00491504 /* arcade-resume.app */;
 			productType = "com.apple.product-type.application";
 		};
-		C50FA5703027A15000491504 /* gamified-resumeTests */ = {
+		C50FA5703027A15000491504 /* arcade-resumeTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = C50FA5883027A15000491504 /* Build configuration list for PBXNativeTarget "gamified-resumeTests" */;
+			buildConfigurationList = C50FA5883027A15000491504 /* Build configuration list for PBXNativeTarget "arcade-resumeTests" */;
 			buildPhases = (
 				C50FA56D3027A15000491504 /* Sources */,
 				C50FA56E3027A15000491504 /* Frameworks */,
@@ -131,18 +131,18 @@
 				C50FA5733027A15000491504 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				C50FA5743027A15000491504 /* gamified-resumeTests */,
+				C50FA5743027A15000491504 /* arcade-resumeTests */,
 			);
-			name = "gamified-resumeTests";
+			name = "arcade-resumeTests";
 			packageProductDependencies = (
 			);
 			productName = "gamified-resumeTests";
-			productReference = C50FA5713027A15000491504 /* gamified-resumeTests.xctest */;
+			productReference = C50FA5713027A15000491504 /* arcade-resumeTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		C50FA57A3027A15000491504 /* gamified-resumeUITests */ = {
+		C50FA57A3027A15000491504 /* arcade-resumeUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = C50FA58B3027A15000491504 /* Build configuration list for PBXNativeTarget "gamified-resumeUITests" */;
+			buildConfigurationList = C50FA58B3027A15000491504 /* Build configuration list for PBXNativeTarget "arcade-resumeUITests" */;
 			buildPhases = (
 				C50FA5773027A15000491504 /* Sources */,
 				C50FA5783027A15000491504 /* Frameworks */,
@@ -154,13 +154,13 @@
 				C50FA57D3027A15000491504 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				C50FA57E3027A15000491504 /* gamified-resumeUITests */,
+				C50FA57E3027A15000491504 /* arcade-resumeUITests */,
 			);
-			name = "gamified-resumeUITests";
+			name = "arcade-resumeUITests";
 			packageProductDependencies = (
 			);
 			productName = "gamified-resumeUITests";
-			productReference = C50FA57B3027A15000491504 /* gamified-resumeUITests.xctest */;
+			productReference = C50FA57B3027A15000491504 /* arcade-resumeUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -186,7 +186,7 @@
 					};
 				};
 			};
-			buildConfigurationList = C50FA55D3027A14F00491504 /* Build configuration list for PBXProject "gamified-resume" */;
+			buildConfigurationList = C50FA55D3027A14F00491504 /* Build configuration list for PBXProject "arcade-resume" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -200,9 +200,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				C50FA5613027A14F00491504 /* gamified-resume */,
-				C50FA5703027A15000491504 /* gamified-resumeTests */,
-				C50FA57A3027A15000491504 /* gamified-resumeUITests */,
+				C50FA5613027A14F00491504 /* arcade-resume */,
+				C50FA5703027A15000491504 /* arcade-resumeTests */,
+				C50FA57A3027A15000491504 /* arcade-resumeUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -258,12 +258,12 @@
 /* Begin PBXTargetDependency section */
 		C50FA5733027A15000491504 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = C50FA5613027A14F00491504 /* gamified-resume */;
+			target = C50FA5613027A14F00491504 /* arcade-resume */;
 			targetProxy = C50FA5723027A15000491504 /* PBXContainerItemProxy */;
 		};
 		C50FA57D3027A15000491504 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = C50FA5613027A14F00491504 /* gamified-resume */;
+			target = C50FA5613027A14F00491504 /* arcade-resume */;
 			targetProxy = C50FA57C3027A15000491504 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -472,7 +472,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/gamified-resume.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/gamified-resume";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/arcade-resume.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/arcade-resume";
 			};
 			name = Debug;
 		};
@@ -494,7 +494,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/gamified-resume.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/gamified-resume";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/arcade-resume.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/arcade-resume";
 			};
 			name = Release;
 		};
@@ -541,7 +541,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		C50FA55D3027A14F00491504 /* Build configuration list for PBXProject "gamified-resume" */ = {
+		C50FA55D3027A14F00491504 /* Build configuration list for PBXProject "arcade-resume" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C50FA5833027A15000491504 /* Debug */,
@@ -550,7 +550,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		C50FA5853027A15000491504 /* Build configuration list for PBXNativeTarget "gamified-resume" */ = {
+		C50FA5853027A15000491504 /* Build configuration list for PBXNativeTarget "arcade-resume" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C50FA5863027A15000491504 /* Debug */,
@@ -559,7 +559,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		C50FA5883027A15000491504 /* Build configuration list for PBXNativeTarget "gamified-resumeTests" */ = {
+		C50FA5883027A15000491504 /* Build configuration list for PBXNativeTarget "arcade-resumeTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C50FA5893027A15000491504 /* Debug */,
@@ -568,7 +568,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		C50FA58B3027A15000491504 /* Build configuration list for PBXNativeTarget "gamified-resumeUITests" */ = {
+		C50FA58B3027A15000491504 /* Build configuration list for PBXNativeTarget "arcade-resumeUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				C50FA58C3027A15000491504 /* Debug */,

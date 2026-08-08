@@ -1,6 +1,6 @@
 import CoreGraphics
 import Testing
-@testable import gamified_resume
+@testable import arcade_resume
 
 struct gamified_resumeTests {
     @Test func resumeExperiencesRepresentCareerHistory() {
