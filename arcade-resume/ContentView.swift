@@ -3,7 +3,9 @@ import SwiftUI
 struct ContentView: View {
     @State private var controller = PlatformerGameController()
     @State private var input = GameInput()
+    @State private var feedback = ArcadeFeedbackController()
     @State private var lastFrameDate = Date()
+    @State private var lastScore = 0
     @FocusState private var gameHasFocus: Bool
 
     var body: some View {
@@ -20,7 +22,7 @@ struct ContentView: View {
 
                 GameWorldView(controller: controller, viewport: viewport)
 
-                TouchInputCaptureView(input: $input)
+                TouchInputCaptureView(input: $input, onJump: requestJump)
 
                 VStack(spacing: 0) {
                     HUDView(
@@ -28,7 +30,7 @@ struct ContentView: View {
                         revealedCount: controller.revealedCount,
                         totalCount: controller.blocks.count,
                         progress: controller.completionProgress,
-                        onReset: controller.reset
+                        onReset: resetGame
                     )
                     .padding(.horizontal, 16)
                     .padding(.top, 12)
@@ -36,7 +38,7 @@ struct ContentView: View {
                     Spacer()
 
                     ControlPadView(input: $input) {
-                        input.jumpRequested = true
+                        requestJump()
                     }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 16)
@@ -48,7 +50,7 @@ struct ContentView: View {
                             .ignoresSafeArea()
 
                         ExperienceDetailView(experience: experience, viewport: viewport) {
-                            controller.selectExperience(nil)
+                            closeActiveExperience(playFeedback: true)
                         }
                         .position(x: viewport.width / 2, y: viewport.height / 2)
                     }
@@ -57,7 +59,7 @@ struct ContentView: View {
                     .gesture(
                         DragGesture(minimumDistance: 0)
                             .onChanged { _ in
-                                controller.selectExperience(nil)
+                                closeActiveExperience(playFeedback: true)
                             }
                     )
                     .transition(.opacity)
@@ -68,6 +70,8 @@ struct ContentView: View {
             .focused($gameHasFocus)
             .onAppear {
                 gameHasFocus = true
+                feedback.startBackgroundMusic()
+                lastScore = controller.score
             }
             .onKeyPress(keys: [.leftArrow, .rightArrow, .upArrow], phases: .all) { keyPress in
                 handleKeyPress(keyPress)
@@ -79,7 +83,10 @@ struct ContentView: View {
                     let now = Date()
                     let delta = now.timeIntervalSince(lastFrameDate)
                     lastFrameDate = now
+                    let wasGroundedBeforeStep = controller.player.isGrounded
                     controller.step(input: input, viewport: viewport, deltaTime: delta)
+                    playRevealFeedbackIfNeeded()
+                    playLandingFeedbackIfNeeded(wasGroundedBeforeStep: wasGroundedBeforeStep)
                     input.jumpRequested = false
 
                     try? await Task.sleep(for: .milliseconds(16))
@@ -89,24 +96,60 @@ struct ContentView: View {
         }
     }
 
+    private func requestJump() {
+        guard playerCanJump else { return }
+        input.jumpRequested = true
+        feedback.playJump()
+    }
+
+    private func resetGame() {
+        controller.reset()
+        lastScore = controller.score
+        feedback.playReset()
+    }
+
+    private func closeActiveExperience(playFeedback: Bool) {
+        guard controller.activeExperience != nil else { return }
+        controller.selectExperience(nil)
+        if playFeedback {
+            feedback.playClose()
+        }
+    }
+
+    private func playRevealFeedbackIfNeeded() {
+        guard controller.score != lastScore else { return }
+        lastScore = controller.score
+        feedback.playBlockReveal()
+    }
+
+    private func playLandingFeedbackIfNeeded(wasGroundedBeforeStep: Bool) {
+        let isGroundedAfterStep = controller.player.isGrounded
+        guard !wasGroundedBeforeStep && isGroundedAfterStep else { return }
+        feedback.playLanding()
+    }
+
+    private var playerCanJump: Bool {
+        controller.player.isGrounded
+    }
+
     private func handleKeyPress(_ keyPress: KeyPress) -> KeyPress.Result {
         switch keyPress.key {
         case .leftArrow:
             if keyPress.phase == .down {
-                controller.selectExperience(nil)
+                closeActiveExperience(playFeedback: true)
             }
             input.isMovingLeft = keyPress.phase != .up
             return .handled
         case .rightArrow:
             if keyPress.phase == .down {
-                controller.selectExperience(nil)
+                closeActiveExperience(playFeedback: true)
             }
             input.isMovingRight = keyPress.phase != .up
             return .handled
         case .upArrow:
             if keyPress.phase == .down {
-                controller.selectExperience(nil)
-                input.jumpRequested = true
+                closeActiveExperience(playFeedback: true)
+                requestJump()
             }
             return .handled
         default:
@@ -409,6 +452,7 @@ private struct ExperienceDetailView: View {
 
 private struct TouchInputCaptureView: View {
     @Binding var input: GameInput
+    let onJump: () -> Void
     @State private var didRequestJumpDuringGesture = false
 
     var body: some View {
@@ -453,7 +497,7 @@ private struct TouchInputCaptureView: View {
 
     private func requestJumpOnce() {
         guard !didRequestJumpDuringGesture else { return }
-        input.jumpRequested = true
+        onJump()
         didRequestJumpDuringGesture = true
     }
 }
