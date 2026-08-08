@@ -54,6 +54,12 @@ struct ContentView: View {
                     }
                     .frame(width: viewport.width, height: viewport.height)
                     .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { _ in
+                                controller.selectExperience(nil)
+                            }
+                    )
                     .transition(.opacity)
                     .zIndex(100)
                 }
@@ -86,13 +92,20 @@ struct ContentView: View {
     private func handleKeyPress(_ keyPress: KeyPress) -> KeyPress.Result {
         switch keyPress.key {
         case .leftArrow:
+            if keyPress.phase == .down {
+                controller.selectExperience(nil)
+            }
             input.isMovingLeft = keyPress.phase != .up
             return .handled
         case .rightArrow:
+            if keyPress.phase == .down {
+                controller.selectExperience(nil)
+            }
             input.isMovingRight = keyPress.phase != .up
             return .handled
         case .upArrow:
             if keyPress.phase == .down {
+                controller.selectExperience(nil)
                 input.jumpRequested = true
             }
             return .handled
@@ -100,6 +113,7 @@ struct ContentView: View {
             return .ignored
         }
     }
+
 }
 
 private struct GameWorldView: View {
