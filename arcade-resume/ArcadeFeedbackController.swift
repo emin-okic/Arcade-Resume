@@ -1,6 +1,11 @@
 import AVFoundation
 import UIKit
 
+enum MoveDirection {
+    case left
+    case right
+}
+
 @MainActor
 final class ArcadeFeedbackController {
     private let engine = AVAudioEngine()
@@ -29,6 +34,15 @@ final class ArcadeFeedbackController {
         playTone(frequency: 520, duration: 0.09, volume: 0.18, shape: .square, glideTo: 780)
     }
 
+    func playMoveButtonPress() {
+        softFeedback.impactOccurred(intensity: 0.4)
+    }
+
+    func playMoveStep(direction: MoveDirection) {
+        let frequency = direction == .left ? 190.0 : 230.0
+        playTone(frequency: frequency, duration: 0.045, volume: 0.09, shape: .square, glideTo: frequency * 0.82)
+    }
+
     func playBlockReveal() {
         notificationFeedback.notificationOccurred(.success)
         playTone(frequency: 880, duration: 0.08, volume: 0.2, shape: .square)
@@ -36,7 +50,7 @@ final class ArcadeFeedbackController {
     }
 
     func playClose() {
-        softFeedback.impactOccurred(intensity: 0.35)
+        softFeedback.impactOccurred(intensity: 0.55)
         playTone(frequency: 260, duration: 0.06, volume: 0.12, shape: .triangle, glideTo: 180)
     }
 

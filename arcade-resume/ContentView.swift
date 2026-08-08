@@ -6,6 +6,8 @@ struct ContentView: View {
     @State private var feedback = ArcadeFeedbackController()
     @State private var lastFrameDate = Date()
     @State private var lastScore = 0
+    @State private var lastMoveFeedbackDate = Date.distantPast
+    @State private var lastMoveFeedbackDirection: MoveDirection?
     @FocusState private var gameHasFocus: Bool
 
     var body: some View {
@@ -22,7 +24,14 @@ struct ContentView: View {
 
                 GameWorldView(controller: controller, viewport: viewport)
 
-                TouchInputCaptureView(input: $input, onJump: requestJump)
+                TouchInputCaptureView(
+                    input: $input,
+                    playerScreenPosition: CGPoint(
+                        x: controller.player.position.x - controller.cameraX,
+                        y: controller.player.position.y - controller.player.size.height / 2
+                    ),
+                    onJump: requestJump
+                )
 
                 VStack(spacing: 0) {
                     HUDView(
@@ -37,9 +46,11 @@ struct ContentView: View {
 
                     Spacer()
 
-                    ControlPadView(input: $input) {
-                        requestJump()
-                    }
+                    ControlPadView(
+                        input: $input,
+                        onMoveButtonPress: playMoveButtonPress,
+                        onJump: requestJump
+                    )
                     .padding(.horizontal, 16)
                     .padding(.bottom, 16)
                 }
@@ -72,6 +83,8 @@ struct ContentView: View {
                 gameHasFocus = true
                 feedback.startBackgroundMusic()
                 lastScore = controller.score
+                lastMoveFeedbackDate = .distantPast
+                lastMoveFeedbackDirection = nil
             }
             .onKeyPress(keys: [.leftArrow, .rightArrow, .upArrow], phases: .all) { keyPress in
                 handleKeyPress(keyPress)
@@ -87,6 +100,7 @@ struct ContentView: View {
                     controller.step(input: input, viewport: viewport, deltaTime: delta)
                     playRevealFeedbackIfNeeded()
                     playLandingFeedbackIfNeeded(wasGroundedBeforeStep: wasGroundedBeforeStep)
+                    playMoveFeedbackIfNeeded(at: now)
                     input.jumpRequested = false
 
                     try? await Task.sleep(for: .milliseconds(16))
@@ -102,9 +116,15 @@ struct ContentView: View {
         feedback.playJump()
     }
 
+    private func playMoveButtonPress() {
+        feedback.playMoveButtonPress()
+    }
+
     private func resetGame() {
         controller.reset()
         lastScore = controller.score
+        lastMoveFeedbackDate = .distantPast
+        lastMoveFeedbackDirection = nil
         feedback.playReset()
     }
 
@@ -126,6 +146,28 @@ struct ContentView: View {
         let isGroundedAfterStep = controller.player.isGrounded
         guard !wasGroundedBeforeStep && isGroundedAfterStep else { return }
         feedback.playLanding()
+    }
+
+    private func playMoveFeedbackIfNeeded(at now: Date) {
+        guard let direction = activeMoveDirection, controller.player.isGrounded else {
+            lastMoveFeedbackDirection = nil
+            return
+        }
+
+        let directionChanged = lastMoveFeedbackDirection != direction
+        let isReadyForNextStep = now.timeIntervalSince(lastMoveFeedbackDate) >= 0.22
+        guard directionChanged || isReadyForNextStep else { return }
+
+        lastMoveFeedbackDate = now
+        lastMoveFeedbackDirection = direction
+        feedback.playMoveStep(direction: direction)
+    }
+
+    private var activeMoveDirection: MoveDirection? {
+        if input.isMovingLeft == input.isMovingRight {
+            return nil
+        }
+        return input.isMovingLeft ? .left : .right
     }
 
     private var playerCanJump: Bool {
@@ -452,6 +494,7 @@ private struct ExperienceDetailView: View {
 
 private struct TouchInputCaptureView: View {
     @Binding var input: GameInput
+    let playerScreenPosition: CGPoint
     let onJump: () -> Void
     @State private var didRequestJumpDuringGesture = false
 
@@ -463,7 +506,7 @@ private struct TouchInputCaptureView: View {
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .onChanged { value in
-                            updateInput(for: value.location, in: proxy.size)
+                            updateInput(for: value.location)
                         }
                         .onEnded { _ in
                             input.isMovingLeft = false
@@ -476,21 +519,28 @@ private struct TouchInputCaptureView: View {
         .accessibilityHidden(true)
     }
 
-    private func updateInput(for location: CGPoint, in size: CGSize) {
-        requestJumpOnce()
-
-        let leftBoundary = size.width * 0.34
-        let rightBoundary = size.width * 0.66
-
-        if location.x < leftBoundary {
-            input.isMovingLeft = true
-            input.isMovingRight = false
-        } else if location.x > rightBoundary {
-            input.isMovingLeft = false
-            input.isMovingRight = true
-        } else {
+    private func updateInput(for location: CGPoint) {
+        let offset = CGPoint(
+            x: location.x - playerScreenPosition.x,
+            y: location.y - playerScreenPosition.y
+        )
+        let distance = hypot(offset.x, offset.y)
+        guard distance > 18 else {
             input.isMovingLeft = false
             input.isMovingRight = false
+            return
+        }
+
+        let horizontalThreshold: CGFloat = 18
+        let verticalThreshold: CGFloat = 14
+        let isAbovePlayer = offset.y < -verticalThreshold
+        let isLeftOfPlayer = offset.x < -horizontalThreshold
+        let isRightOfPlayer = offset.x > horizontalThreshold
+
+        input.isMovingLeft = isLeftOfPlayer
+        input.isMovingRight = isRightOfPlayer
+
+        if isAbovePlayer {
             requestJumpOnce()
         }
     }
@@ -504,15 +554,22 @@ private struct TouchInputCaptureView: View {
 
 private struct ControlPadView: View {
     @Binding var input: GameInput
+    let onMoveButtonPress: () -> Void
     let onJump: () -> Void
 
     var body: some View {
         HStack {
             HStack(spacing: 10) {
                 holdButton(systemName: "arrow.left", accessibilityLabel: "Move left") { isPressed in
+                    if isPressed && !input.isMovingLeft {
+                        onMoveButtonPress()
+                    }
                     input.isMovingLeft = isPressed
                 }
                 holdButton(systemName: "arrow.right", accessibilityLabel: "Move right") { isPressed in
+                    if isPressed && !input.isMovingRight {
+                        onMoveButtonPress()
+                    }
                     input.isMovingRight = isPressed
                 }
             }
