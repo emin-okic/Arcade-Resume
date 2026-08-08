@@ -2,7 +2,7 @@ import CoreGraphics
 import Testing
 @testable import arcade_resume
 
-struct gamified_resumeTests {
+struct arcade_resumeTests {
     @Test func resumeExperiencesRepresentCareerHistory() {
         #expect(ResumeExperience.all.count == 5)
         #expect(ResumeExperience.all.first?.title == "Freelance Software Engineer")
