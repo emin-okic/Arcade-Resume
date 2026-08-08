@@ -1,0 +1,13 @@
+{
+  "images" : [
+    {
+      "filename" : "RoseIdle2.png",
+      "idiom" : "universal",
+      "scale" : "1x"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

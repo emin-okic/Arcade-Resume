@@ -4,6 +4,8 @@ struct ContentView: View {
     @State private var controller = PlatformerGameController()
     @State private var input = GameInput()
     @State private var feedback = ArcadeFeedbackController()
+    @State private var selectedCharacter = PlayableCharacter.defaultCharacter
+    @State private var hasChosenCharacter = false
     @State private var lastFrameDate = Date()
     @State private var lastScore = 0
     @State private var lastMoveFeedbackDate = Date.distantPast
@@ -22,18 +24,19 @@ struct ContentView: View {
                 )
                 .ignoresSafeArea()
 
-                GameWorldView(controller: controller, viewport: viewport)
+                if hasChosenCharacter {
+                    GameWorldView(controller: controller, viewport: viewport, character: selectedCharacter)
 
-                TouchInputCaptureView(
-                    input: $input,
-                    playerScreenPosition: CGPoint(
-                        x: controller.player.position.x - controller.cameraX,
-                        y: controller.player.position.y - controller.player.size.height / 2
-                    ),
-                    onJump: requestJump
-                )
+                    TouchInputCaptureView(
+                        input: $input,
+                        playerScreenPosition: CGPoint(
+                            x: controller.player.position.x - controller.cameraX,
+                            y: controller.player.position.y - controller.player.size.height / 2
+                        ),
+                        onJump: requestJump
+                    )
 
-                VStack(spacing: 0) {
+                    VStack(spacing: 0) {
                     HUDView(
                         score: controller.score,
                         revealedCount: controller.revealedCount,
@@ -53,9 +56,18 @@ struct ContentView: View {
                     )
                     .padding(.horizontal, 16)
                     .padding(.bottom, 16)
+                    }
+                } else {
+                    CharacterSelectView(
+                        selectedCharacter: selectedCharacter,
+                        onSelect: selectCharacter,
+                        onStart: startGame
+                    )
+                    .transition(.opacity)
+                    .zIndex(200)
                 }
 
-                if let experience = controller.activeExperience {
+                if hasChosenCharacter, let experience = controller.activeExperience {
                     ZStack {
                         Color.black.opacity(0.34)
                             .ignoresSafeArea()
@@ -96,6 +108,12 @@ struct ContentView: View {
                     let now = Date()
                     let delta = now.timeIntervalSince(lastFrameDate)
                     lastFrameDate = now
+
+                    guard hasChosenCharacter else {
+                        try? await Task.sleep(for: .milliseconds(16))
+                        continue
+                    }
+
                     let wasGroundedBeforeStep = controller.player.isGrounded
                     controller.step(input: input, viewport: viewport, deltaTime: delta)
                     playRevealFeedbackIfNeeded()
@@ -110,8 +128,23 @@ struct ContentView: View {
         }
     }
 
+    private func selectCharacter(_ character: PlayableCharacter) {
+        selectedCharacter = character
+        feedback.playMoveButtonPress()
+    }
+
+    private func startGame() {
+        controller.reset()
+        input = GameInput()
+        lastScore = controller.score
+        lastMoveFeedbackDate = .distantPast
+        lastMoveFeedbackDirection = nil
+        hasChosenCharacter = true
+        feedback.playBlockReveal()
+    }
+
     private func requestJump() {
-        guard playerCanJump else { return }
+        guard hasChosenCharacter, playerCanJump else { return }
         input.jumpRequested = true
         feedback.playJump()
     }
@@ -201,9 +234,168 @@ struct ContentView: View {
 
 }
 
+private struct PlayableCharacter: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let assetPrefix: String
+    let accentColor: Color
+
+    var portraitName: String {
+        "\(assetPrefix)Portrait"
+    }
+
+    static let all: [PlayableCharacter] = [
+        PlayableCharacter(id: "caveman", name: "Caveman", assetPrefix: "Caveman", accentColor: Color(red: 0.98, green: 0.62, blue: 0.18)),
+        PlayableCharacter(id: "scout", name: "Scout", assetPrefix: "Scout", accentColor: Color(red: 0.73, green: 0.23, blue: 0.2)),
+        PlayableCharacter(id: "lion", name: "Lion", assetPrefix: "Lion", accentColor: Color(red: 0.48, green: 0.82, blue: 0.28)),
+        PlayableCharacter(id: "gorilla", name: "Gorilla", assetPrefix: "Gorilla", accentColor: Color(red: 0.23, green: 0.5, blue: 0.54)),
+        PlayableCharacter(id: "eggshell", name: "Eggshell", assetPrefix: "Eggshell", accentColor: Color(red: 0.82, green: 0.94, blue: 0.94)),
+        PlayableCharacter(id: "aqua", name: "Aqua", assetPrefix: "Aqua", accentColor: Color(red: 0.2, green: 0.82, blue: 0.9)),
+        PlayableCharacter(id: "rose", name: "Rose", assetPrefix: "Rose", accentColor: Color(red: 0.78, green: 0.26, blue: 0.5)),
+        PlayableCharacter(id: "fern", name: "Fern", assetPrefix: "Fern", accentColor: Color(red: 0.24, green: 0.58, blue: 0.42))
+    ]
+
+    static let defaultCharacter = all[7]
+}
+
+private struct CharacterSelectView: View {
+    let selectedCharacter: PlayableCharacter
+    let onSelect: (PlayableCharacter) -> Void
+    let onStart: () -> Void
+
+    private let columns = [
+        GridItem(.adaptive(minimum: 82, maximum: 104), spacing: 12)
+    ]
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            LinearGradient(
+                colors: [Color(red: 0.36, green: 0.74, blue: 1), Color(red: 0.78, green: 0.93, blue: 1)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                Spacer()
+                Rectangle()
+                    .fill(Color(red: 0.18, green: 0.58, blue: 0.3))
+                    .frame(height: 18)
+                Rectangle()
+                    .fill(Color(red: 0.54, green: 0.32, blue: 0.17))
+                    .frame(height: 92)
+            }
+            .ignoresSafeArea()
+
+            decorativeCloud(x: 58, y: 88, scale: 0.9)
+            decorativeCloud(x: 286, y: 130, scale: 0.72)
+            decorativeCloud(x: 560, y: 82, scale: 1.05)
+
+            VStack(spacing: 18) {
+                VStack(spacing: 5) {
+                    Text("Choose Your Hero")
+                        .font(.system(size: 30, weight: .black, design: .rounded))
+                        .foregroundStyle(Color(red: 0.08, green: 0.18, blue: 0.3))
+                        .multilineTextAlignment(.center)
+
+                    Text(selectedCharacter.name)
+                        .font(.headline.weight(.heavy))
+                        .foregroundStyle(selectedCharacter.accentColor)
+                }
+                .padding(.top, 18)
+
+                ZStack(alignment: .bottom) {
+                    Ellipse()
+                        .fill(.black.opacity(0.22))
+                        .frame(width: 92, height: 16)
+                        .offset(y: 6)
+                    Image(selectedCharacter.portraitName)
+                        .interpolation(.none)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 126, height: 126)
+                        .mask(Rectangle().padding(.bottom, 14))
+                }
+                .frame(height: 132)
+
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(PlayableCharacter.all) { character in
+                        CharacterTokenView(
+                            character: character,
+                            isSelected: character == selectedCharacter
+                        ) {
+                            onSelect(character)
+                        }
+                    }
+                }
+                .padding(.horizontal, 18)
+                .frame(maxWidth: 460)
+
+                Button(action: onStart) {
+                    Label("Start", systemImage: "play.fill")
+                        .font(.headline.weight(.black))
+                        .frame(maxWidth: 220)
+                        .padding(.vertical, 12)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(red: 0.12, green: 0.22, blue: 0.36))
+                .padding(.bottom, 34)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private func decorativeCloud(x: CGFloat, y: CGFloat, scale: CGFloat) -> some View {
+        ZStack {
+            Capsule().fill(.white.opacity(0.92)).frame(width: 74, height: 28)
+            Circle().fill(.white.opacity(0.94)).frame(width: 32, height: 32).offset(x: -18, y: -8)
+            Circle().fill(.white.opacity(0.94)).frame(width: 42, height: 42).offset(x: 10, y: -12)
+        }
+        .scaleEffect(scale)
+        .position(x: x, y: y)
+    }
+}
+
+private struct CharacterTokenView: View {
+    let character: PlayableCharacter
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            VStack(spacing: 5) {
+                Image(character.portraitName)
+                    .interpolation(.none)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 62, height: 62)
+                    .mask(Rectangle().padding(.bottom, 8))
+
+                Text(character.name)
+                    .font(.caption2.weight(.black))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .frame(width: 82, height: 92)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? character.accentColor.opacity(0.28) : Color.white.opacity(0.72))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(isSelected ? character.accentColor : Color.white.opacity(0.6), lineWidth: isSelected ? 3 : 1)
+            )
+            .shadow(color: .black.opacity(isSelected ? 0.22 : 0.1), radius: isSelected ? 8 : 3, x: 0, y: isSelected ? 5 : 2)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(character.name)
+    }
+}
+
 private struct GameWorldView: View {
     let controller: PlatformerGameController
     let viewport: CGSize
+    let character: PlayableCharacter
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -224,7 +416,7 @@ private struct GameWorldView: View {
                     }
             }
 
-            PlayerView(player: controller.player)
+            PlayerView(player: controller.player, character: character)
                 .frame(width: controller.player.size.width, height: controller.player.size.height)
                 .position(x: controller.player.position.x, y: controller.player.position.y - controller.player.size.height / 2)
 
@@ -291,9 +483,15 @@ private struct QuestionBlockView: View {
 
 private struct PlayerView: View {
     let player: ResumePlayer
+    let character: PlayableCharacter
 
-    private let idleFrames = ["HeroIdle0", "HeroIdle1", "HeroIdle2", "HeroIdle3"]
-    private let walkFrames = ["HeroWalk0", "HeroWalk1", "HeroWalk2", "HeroWalk3", "HeroWalk4", "HeroWalk5"]
+    private var idleFrames: [String] {
+        (0..<4).map { "\(character.assetPrefix)Idle\($0)" }
+    }
+
+    private var walkFrames: [String] {
+        (0..<6).map { "\(character.assetPrefix)Walk\($0)" }
+    }
 
     private var isMoving: Bool {
         abs(player.velocity.dx) > 12
@@ -326,7 +524,7 @@ private struct PlayerView: View {
 
     private func currentFrameName(at timestamp: TimeInterval) -> String {
         if !player.isGrounded && abs(player.velocity.dy) > 1 {
-            return player.velocity.dy < 0 ? "HeroJump0" : "HeroFall0"
+            return player.velocity.dy < 0 ? "\(character.assetPrefix)Jump0" : "\(character.assetPrefix)Fall0"
         }
 
         if isMoving {
