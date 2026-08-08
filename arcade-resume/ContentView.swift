@@ -207,28 +207,48 @@ private struct QuestionBlockView: View {
 private struct PlayerView: View {
     let player: ResumePlayer
 
+    private let idleFrames = ["HeroIdle0", "HeroIdle1", "HeroIdle2", "HeroIdle3"]
+    private let walkFrames = ["HeroWalk0", "HeroWalk1", "HeroWalk2", "HeroWalk3", "HeroWalk4", "HeroWalk5"]
+
+    private var isMoving: Bool {
+        abs(player.velocity.dx) > 12
+    }
+
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(red: 0.87, green: 0.16, blue: 0.22))
-                .frame(width: 30, height: 28)
-                .offset(y: 8)
+        TimelineView(.animation) { timeline in
+            let timestamp = timeline.date.timeIntervalSinceReferenceDate
+            let frameName = currentFrameName(at: timestamp)
+            let groundBounce = isMoving && player.isGrounded ? sin(timestamp * 18) * 1.5 : 0
 
-            Circle()
-                .fill(Color(red: 1, green: 0.78, blue: 0.55))
-                .frame(width: 28, height: 28)
-                .offset(y: -12)
+            ZStack(alignment: .bottom) {
+                Ellipse()
+                    .fill(.black.opacity(player.isGrounded ? 0.24 : 0.12))
+                    .frame(width: 44, height: 9)
+                    .offset(y: 4)
 
-            Circle()
-                .fill(.black)
-                .frame(width: 4, height: 4)
-                .offset(x: player.isFacingRight ? 6 : -6, y: -14)
-
-            Rectangle()
-                .fill(Color(red: 0.1, green: 0.22, blue: 0.75))
-                .frame(width: 26, height: 12)
-                .offset(y: 23)
+                Image(frameName)
+                    .interpolation(.none)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 80, height: 80)
+                    .scaleEffect(x: player.isFacingRight ? 1 : -1, y: 1)
+                    .offset(y: -7 + groundBounce)
+            }
+            .frame(width: 88, height: 88, alignment: .bottom)
+            .accessibilityLabel("Player character")
         }
+    }
+
+    private func currentFrameName(at timestamp: TimeInterval) -> String {
+        if !player.isGrounded && abs(player.velocity.dy) > 1 {
+            return player.velocity.dy < 0 ? "HeroJump0" : "HeroFall0"
+        }
+
+        if isMoving {
+            return walkFrames[Int(timestamp * 12) % walkFrames.count]
+        }
+
+        return idleFrames[Int(timestamp * 4) % idleFrames.count]
     }
 }
 
