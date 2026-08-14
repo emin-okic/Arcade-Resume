@@ -320,8 +320,24 @@ struct ContentView: View {
         feedback.playClose()
     }
 
+    private func closeTutorialOverlayIfPlayerPassedFirstBlock(viewport: CGSize) {
+        guard movementTutorialStep != .complete,
+              let firstBlock = controller.blocks.first,
+              !firstBlock.isRevealed else { return }
+
+        let firstBlockRect = controller.rect(for: firstBlock, viewport: viewport)
+        let hasPassedFirstBlock = controller.player.position.x > firstBlockRect.maxX + controller.player.size.width
+        guard hasPassedFirstBlock else { return }
+
+        withAnimation(.snappy(duration: 0.2)) {
+            movementTutorialStep = .complete
+        }
+    }
+
     private func handleWorldTriggers(viewport: CGSize) {
         guard controller.activeExperience == nil, !isShowingCredits else { return }
+
+        closeTutorialOverlayIfPlayerPassedFirstBlock(viewport: viewport)
 
         if movementTutorialStep == .complete,
            controller.player.rect.intersects(controller.tunnelRect(viewport: viewport)) {
