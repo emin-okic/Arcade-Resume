@@ -572,6 +572,18 @@ private struct GameWorldView: View {
             decorativeCloud(x: 430, y: 92, scale: 1.1)
             decorativeCloud(x: 960, y: 54, scale: 0.85)
 
+            TutorialPromptView(
+                systemName: "arrow.left.and.right",
+                text: "Move with the arrow buttons"
+            )
+            .position(x: 112, y: controller.groundY(for: viewport) - 106)
+
+            TutorialPromptView(
+                systemName: "arrow.up",
+                text: "Jump up to hit ? blocks"
+            )
+            .position(x: 244, y: controller.groundY(for: viewport) - 252)
+
             ForEach(controller.blocks) { block in
                 QuestionBlockView(block: block)
                     .frame(width: 48, height: 48)
@@ -626,6 +638,36 @@ private struct GameWorldView: View {
         }
         .scaleEffect(scale)
         .position(x: x, y: y)
+    }
+}
+
+private struct TutorialPromptView: View {
+    let systemName: String
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: systemName)
+                .font(.system(size: 13, weight: .black))
+                .frame(width: 24, height: 24)
+                .background(Color.white.opacity(0.86), in: RoundedRectangle(cornerRadius: 6))
+
+            Text(text)
+                .font(.caption.weight(.black))
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .foregroundStyle(Color(red: 0.08, green: 0.13, blue: 0.2))
+        .padding(.horizontal, 9)
+        .padding(.vertical, 7)
+        .frame(width: 156, alignment: .leading)
+        .background(Color.white.opacity(0.82), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color(red: 0.08, green: 0.13, blue: 0.2).opacity(0.18), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.16), radius: 0, x: 0, y: 3)
+        .accessibilityLabel(text)
     }
 }
 
@@ -926,38 +968,47 @@ private struct ControlPadView: View {
 
     var body: some View {
         HStack {
-            HStack(spacing: 10) {
-                holdButton(systemName: "arrow.left", accessibilityLabel: "Move left") { isPressed in
-                    if isPressed && !input.isMovingLeft {
-                        onMoveButtonPress()
+            Spacer(minLength: 0)
+
+            VStack(spacing: 8) {
+                tapButton(systemName: "arrow.up", accessibilityLabel: "Jump", action: onJump)
+
+                HStack(spacing: 8) {
+                    holdButton(systemName: "arrow.left", accessibilityLabel: "Move left") { isPressed in
+                        if isPressed && !input.isMovingLeft {
+                            onMoveButtonPress()
+                        }
+                        input.isMovingLeft = isPressed
                     }
-                    input.isMovingLeft = isPressed
-                }
-                holdButton(systemName: "arrow.right", accessibilityLabel: "Move right") { isPressed in
-                    if isPressed && !input.isMovingRight {
-                        onMoveButtonPress()
+
+                    holdButton(systemName: "arrow.right", accessibilityLabel: "Move right") { isPressed in
+                        if isPressed && !input.isMovingRight {
+                            onMoveButtonPress()
+                        }
+                        input.isMovingRight = isPressed
                     }
-                    input.isMovingRight = isPressed
                 }
             }
-
-            Spacer()
-
-            Button(action: onJump) {
-                Image(systemName: "arrow.up")
-                    .font(.system(size: 24, weight: .black))
-                    .frame(width: 64, height: 54)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(Color(red: 0.9, green: 0.2, blue: 0.2))
-            .accessibilityLabel("Jump")
         }
+    }
+
+    private func tapButton(systemName: String, accessibilityLabel: String, action: @escaping () -> Void) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 22, weight: .black))
+            .frame(width: 54, height: 46)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(.white.opacity(0.45), lineWidth: 1)
+            )
+            .onTapGesture(perform: action)
+            .accessibilityLabel(accessibilityLabel)
     }
 
     private func holdButton(systemName: String, accessibilityLabel: String, onPressChanged: @escaping (Bool) -> Void) -> some View {
         Image(systemName: systemName)
-            .font(.system(size: 24, weight: .black))
-            .frame(width: 64, height: 54)
+            .font(.system(size: 22, weight: .black))
+            .frame(width: 54, height: 46)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
