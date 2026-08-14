@@ -38,25 +38,17 @@ struct ContentView: View {
                     )
 
                     VStack(spacing: 0) {
-                    HUDView(
-                        score: controller.score,
-                        revealedCount: controller.revealedCount,
-                        totalCount: controller.blocks.count,
-                        progress: controller.completionProgress,
-                        onReset: resetGame
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
+                        HUDView(
+                            score: controller.score,
+                            revealedCount: controller.revealedCount,
+                            totalCount: controller.blocks.count,
+                            progress: controller.completionProgress,
+                            onReset: resetGame
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
 
-                    Spacer()
-
-                    ControlPadView(
-                        input: $input,
-                        onMoveButtonPress: playMoveButtonPress,
-                        onJump: requestJump
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
+                        Spacer()
                     }
                 } else if hasPassedTitleScreen {
                     CharacterSelectView(
@@ -158,10 +150,6 @@ struct ContentView: View {
         guard hasChosenCharacter, playerCanJump else { return }
         input.jumpRequested = true
         feedback.playJump()
-    }
-
-    private func playMoveButtonPress() {
-        feedback.playMoveButtonPress()
     }
 
     private func resetGame() {
@@ -573,20 +561,26 @@ private struct GameWorldView: View {
             decorativeCloud(x: 960, y: 54, scale: 0.85)
 
             TutorialPromptView(
-                systemName: "arrow.left.and.right",
-                text: "Move with the arrow buttons"
+                systemName: "hand.tap.fill",
+                text: "Tap left or right of your hero to walk"
             )
-            .position(x: 112, y: controller.groundY(for: viewport) - 106)
+            .position(x: 172, y: controller.groundY(for: viewport) - 118)
 
             TutorialPromptView(
-                systemName: "arrow.up",
-                text: "Jump up to hit ? blocks"
+                systemName: "hand.point.up.left.fill",
+                text: "Tap above your hero to jump"
             )
-            .position(x: 244, y: controller.groundY(for: viewport) - 252)
+            .position(x: 174, y: controller.groundY(for: viewport) - 238)
+
+            TutorialPromptView(
+                systemName: "checkmark.seal.fill",
+                text: "Hit the first block to finish the tutorial"
+            )
+            .position(x: 344, y: controller.groundY(for: viewport) - 304)
 
             ForEach(controller.blocks) { block in
                 QuestionBlockView(block: block)
-                    .frame(width: 48, height: 48)
+                    .frame(width: controller.blockSize.width, height: controller.blockSize.height)
                     .position(
                         x: controller.rect(for: block, viewport: viewport).midX,
                         y: controller.rect(for: block, viewport: viewport).midY
@@ -646,21 +640,22 @@ private struct TutorialPromptView: View {
     let text: String
 
     var body: some View {
-        HStack(spacing: 7) {
+        HStack(alignment: .top, spacing: 8) {
             Image(systemName: systemName)
                 .font(.system(size: 13, weight: .black))
-                .frame(width: 24, height: 24)
+                .frame(width: 26, height: 26)
                 .background(Color.white.opacity(0.86), in: RoundedRectangle(cornerRadius: 6))
 
             Text(text)
                 .font(.caption.weight(.black))
-                .lineLimit(2)
+                .lineLimit(nil)
+                .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .foregroundStyle(Color(red: 0.08, green: 0.13, blue: 0.2))
-        .padding(.horizontal, 9)
-        .padding(.vertical, 7)
-        .frame(width: 156, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(width: 218, alignment: .leading)
         .background(Color.white.opacity(0.82), in: RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
@@ -756,7 +751,7 @@ private struct HUDView: View {
     var body: some View {
         HStack(spacing: 12) {
             stat(title: "Score", value: "\(score)")
-            stat(title: "Jobs", value: "\(revealedCount)/\(totalCount)")
+            stat(title: "Blocks", value: "\(revealedCount)/\(totalCount)")
 
             ProgressView(value: progress)
                 .tint(Color(red: 0.1, green: 0.5, blue: 0.28))
@@ -810,7 +805,7 @@ private struct ExperienceDetailView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Job Description")
+                    Text(experience.id == "tutorial-complete" ? "Tutorial" : "Job Description")
                         .font(.caption2.weight(.black))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 9)
@@ -958,68 +953,6 @@ private struct TouchInputCaptureView: View {
         guard !didRequestJumpDuringGesture else { return }
         onJump()
         didRequestJumpDuringGesture = true
-    }
-}
-
-private struct ControlPadView: View {
-    @Binding var input: GameInput
-    let onMoveButtonPress: () -> Void
-    let onJump: () -> Void
-
-    var body: some View {
-        HStack {
-            Spacer(minLength: 0)
-
-            VStack(spacing: 8) {
-                tapButton(systemName: "arrow.up", accessibilityLabel: "Jump", action: onJump)
-
-                HStack(spacing: 8) {
-                    holdButton(systemName: "arrow.left", accessibilityLabel: "Move left") { isPressed in
-                        if isPressed && !input.isMovingLeft {
-                            onMoveButtonPress()
-                        }
-                        input.isMovingLeft = isPressed
-                    }
-
-                    holdButton(systemName: "arrow.right", accessibilityLabel: "Move right") { isPressed in
-                        if isPressed && !input.isMovingRight {
-                            onMoveButtonPress()
-                        }
-                        input.isMovingRight = isPressed
-                    }
-                }
-            }
-        }
-    }
-
-    private func tapButton(systemName: String, accessibilityLabel: String, action: @escaping () -> Void) -> some View {
-        Image(systemName: systemName)
-            .font(.system(size: 22, weight: .black))
-            .frame(width: 54, height: 46)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(.white.opacity(0.45), lineWidth: 1)
-            )
-            .onTapGesture(perform: action)
-            .accessibilityLabel(accessibilityLabel)
-    }
-
-    private func holdButton(systemName: String, accessibilityLabel: String, onPressChanged: @escaping (Bool) -> Void) -> some View {
-        Image(systemName: systemName)
-            .font(.system(size: 22, weight: .black))
-            .frame(width: 54, height: 46)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(.white.opacity(0.45), lineWidth: 1)
-            )
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in onPressChanged(true) }
-                    .onEnded { _ in onPressChanged(false) }
-            )
-            .accessibilityLabel(accessibilityLabel)
     }
 }
 
