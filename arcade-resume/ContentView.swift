@@ -4,6 +4,7 @@ private enum MovementTutorialStep: Equatable {
     case moveRight
     case moveLeft
     case jump
+    case hitBlock
     case complete
 
     var instruction: String {
@@ -14,8 +15,10 @@ private enum MovementTutorialStep: Equatable {
             return "Tap and hold the left side of the screen"
         case .jump:
             return "Tap above your hero to jump"
+        case .hitBlock:
+            return "Jump up into the highlighted block"
         case .complete:
-            return "Nice. Now hit the first block."
+            return "Tutorial complete"
         }
     }
 
@@ -27,6 +30,8 @@ private enum MovementTutorialStep: Equatable {
             return "arrow.left"
         case .jump:
             return "arrow.up"
+        case .hitBlock:
+            return "questionmark.square.fill"
         case .complete:
             return "checkmark"
         }
@@ -52,6 +57,7 @@ struct ContentView: View {
     @State private var lastMoveFeedbackDirection: MoveDirection?
     @State private var movementTutorialStep: MovementTutorialStep = .moveRight
     @State private var rewardAnimationID = 0
+    @State private var confettiAnimationID = 0
     @FocusState private var gameHasFocus: Bool
 
     var body: some View {
@@ -70,8 +76,7 @@ struct ContentView: View {
                     GameWorldView(
                         controller: controller,
                         viewport: viewport,
-                        character: selectedCharacter,
-                        showsIntroPrompts: movementTutorialStep == .complete
+                        character: selectedCharacter
                     )
 
                     TouchInputCaptureView(
@@ -105,7 +110,8 @@ struct ContentView: View {
                         playerScreenPosition: CGPoint(
                             x: controller.player.position.x - controller.cameraX,
                             y: controller.player.position.y - controller.player.size.height / 2
-                        )
+                        ),
+                        highlightedBlockRect: firstBlockScreenRect(viewport: viewport)
                     )
                     .allowsHitTesting(false)
                     .transition(.opacity)
@@ -134,6 +140,12 @@ struct ContentView: View {
                             closeActiveExperience(playFeedback: true)
                         }
                         .position(x: viewport.width / 2, y: viewport.height / 2)
+
+                        if confettiAnimationID > 0, experience.id == "tutorial-complete" {
+                            TutorialConfettiBurst(viewport: viewport)
+                                .id(confettiAnimationID)
+                                .allowsHitTesting(false)
+                        }
                     }
                     .frame(width: viewport.width, height: viewport.height)
                     .contentShape(Rectangle())
@@ -186,6 +198,12 @@ struct ContentView: View {
         }
     }
 
+    private func firstBlockScreenRect(viewport: CGSize) -> CGRect? {
+        guard let firstBlock = controller.blocks.first else { return nil }
+        let worldRect = controller.rect(for: firstBlock, viewport: viewport)
+        return worldRect.offsetBy(dx: -controller.cameraX, dy: 0)
+    }
+
     private func showCharacterSelect() {
         hasPassedTitleScreen = true
         feedback.playBlockReveal()
@@ -204,6 +222,7 @@ struct ContentView: View {
         lastMoveFeedbackDirection = nil
         movementTutorialStep = .moveRight
         rewardAnimationID = 0
+        confettiAnimationID = 0
         hasChosenCharacter = true
         feedback.playBlockReveal()
     }
@@ -221,6 +240,7 @@ struct ContentView: View {
         lastMoveFeedbackDirection = nil
         movementTutorialStep = .moveRight
         rewardAnimationID = 0
+        confettiAnimationID = 0
         feedback.playReset()
     }
 
@@ -239,14 +259,14 @@ struct ContentView: View {
         case (.moveLeft, .left):
             completeMovementTutorialStep(nextStep: .jump, reward: .left)
         case (.jump, .up):
-            completeMovementTutorialStep(nextStep: .complete, reward: nil)
+            completeMovementTutorialStep(nextStep: .hitBlock, reward: nil)
         default:
             break
         }
     }
 
     private func completeMovementTutorialStep(nextStep: MovementTutorialStep, reward: MoveDirection?) {
-        guard movementTutorialStep != .complete else { return }
+        guard movementTutorialStep != .complete, movementTutorialStep != .hitBlock else { return }
         rewardAnimationID += 1
         if let reward {
             feedback.playMoveStep(direction: reward)
@@ -262,6 +282,13 @@ struct ContentView: View {
         guard controller.score != lastScore else { return }
         lastScore = controller.score
         feedback.playBlockReveal()
+
+        if controller.activeExperience?.id == "tutorial-complete" {
+            withAnimation(.snappy(duration: 0.24)) {
+                movementTutorialStep = .complete
+            }
+            confettiAnimationID += 1
+        }
     }
 
     private func playLandingFeedbackIfNeeded(wasGroundedBeforeStep: Bool) {
@@ -646,21 +673,12 @@ private struct GameWorldView: View {
     let controller: PlatformerGameController
     let viewport: CGSize
     let character: PlayableCharacter
-    let showsIntroPrompts: Bool
 
     var body: some View {
         ZStack(alignment: .topLeading) {
             decorativeCloud(x: 72, y: 62, scale: 0.9)
             decorativeCloud(x: 430, y: 92, scale: 1.1)
             decorativeCloud(x: 960, y: 54, scale: 0.85)
-
-            if showsIntroPrompts {
-                TutorialPromptView(
-                    systemName: "checkmark.seal.fill",
-                    text: "Hit the first block to finish the tutorial"
-                )
-                .position(x: 344, y: controller.groundY(for: viewport) - 304)
-            }
 
             ForEach(controller.blocks) { block in
                 QuestionBlockView(block: block)
@@ -985,6 +1003,7 @@ private struct MovementTutorialOverlay: View {
     let rewardAnimationID: Int
     let viewport: CGSize
     let playerScreenPosition: CGPoint
+    let highlightedBlockRect: CGRect?
 
     var body: some View {
         ZStack {
@@ -1057,6 +1076,8 @@ private struct MovementTutorialOverlay: View {
             return CGPoint(x: max(86, playerScreenPosition.x - 154), y: playerScreenPosition.y + 8)
         case .jump:
             return CGPoint(x: playerScreenPosition.x, y: max(158, playerScreenPosition.y - 154))
+        case .hitBlock:
+            return highlightedBlockRect.map { CGPoint(x: $0.midX, y: $0.midY) } ?? playerScreenPosition
         case .complete:
             return playerScreenPosition
         }
@@ -1070,6 +1091,12 @@ private struct MovementTutorialOverlay: View {
             return CGPoint(x: max(176, playerScreenPosition.x + 16), y: max(188, playerScreenPosition.y - 126))
         case .jump:
             return CGPoint(x: viewport.width / 2, y: max(202, playerScreenPosition.y - 258))
+        case .hitBlock:
+            let blockCenter = highlightedBlockRect.map { CGPoint(x: $0.midX, y: $0.midY) } ?? playerScreenPosition
+            return CGPoint(
+                x: min(max(blockCenter.x, 176), viewport.width - 176),
+                y: min(max(blockCenter.y - 132, 178), viewport.height - 150)
+            )
         case .complete:
             return CGPoint(x: viewport.width / 2, y: viewport.height / 2)
         }
@@ -1081,6 +1108,9 @@ private struct MovementTutorialOverlay: View {
             return CGSize(width: 118, height: 118)
         case .jump:
             return CGSize(width: 132, height: 96)
+        case .hitBlock:
+            guard let highlightedBlockRect else { return CGSize(width: 72, height: 72) }
+            return CGSize(width: highlightedBlockRect.width + 22, height: highlightedBlockRect.height + 22)
         case .complete:
             return .zero
         }
@@ -1124,7 +1154,7 @@ private struct AnimatedTapCue: View {
             return CGSize(width: 14, height: 0)
         case .moveLeft:
             return CGSize(width: -14, height: 0)
-        case .jump:
+        case .jump, .hitBlock:
             return CGSize(width: 0, height: -14)
         case .complete:
             return .zero
@@ -1135,12 +1165,65 @@ private struct AnimatedTapCue: View {
         switch step {
         case .moveRight, .moveLeft:
             return CGSize(width: 72, height: 30)
-        case .jump:
+        case .jump, .hitBlock:
             return CGSize(width: 34, height: 58)
         case .complete:
             return .zero
         }
     }
+}
+
+private struct TutorialConfettiBurst: View {
+    let viewport: CGSize
+    @State private var isExpanded = false
+    @State private var isVisible = true
+
+    private let pieces: [ConfettiPiece] = [
+        ConfettiPiece(x: -132, y: -132, rotation: -28, color: Color(red: 0.96, green: 0.25, blue: 0.31)),
+        ConfettiPiece(x: -82, y: -176, rotation: 36, color: Color(red: 0.12, green: 0.62, blue: 0.96)),
+        ConfettiPiece(x: -28, y: -146, rotation: -18, color: Color(red: 1, green: 0.78, blue: 0.2)),
+        ConfettiPiece(x: 36, y: -182, rotation: 42, color: Color(red: 0.24, green: 0.7, blue: 0.36)),
+        ConfettiPiece(x: 94, y: -138, rotation: -38, color: Color(red: 0.68, green: 0.36, blue: 0.95)),
+        ConfettiPiece(x: 142, y: -170, rotation: 22, color: Color(red: 1, green: 0.5, blue: 0.18)),
+        ConfettiPiece(x: -118, y: 126, rotation: 34, color: Color(red: 0.24, green: 0.7, blue: 0.36)),
+        ConfettiPiece(x: -52, y: 164, rotation: -44, color: Color(red: 1, green: 0.78, blue: 0.2)),
+        ConfettiPiece(x: 22, y: 142, rotation: 18, color: Color(red: 0.96, green: 0.25, blue: 0.31)),
+        ConfettiPiece(x: 88, y: 174, rotation: -26, color: Color(red: 0.12, green: 0.62, blue: 0.96)),
+        ConfettiPiece(x: 136, y: 118, rotation: 48, color: Color(red: 0.68, green: 0.36, blue: 0.95))
+    ]
+
+    var body: some View {
+        ZStack {
+            ForEach(pieces) { piece in
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(piece.color)
+                    .frame(width: 10, height: 18)
+                    .rotationEffect(.degrees(isExpanded ? piece.rotation : 0))
+                    .offset(x: isExpanded ? piece.x : 0, y: isExpanded ? piece.y : 0)
+                    .opacity(isVisible ? 1 : 0)
+            }
+        }
+        .position(x: viewport.width / 2, y: viewport.height / 2)
+        .onAppear {
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.72)) {
+                isExpanded = true
+            }
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(900))
+                withAnimation(.easeOut(duration: 0.28)) {
+                    isVisible = false
+                }
+            }
+        }
+    }
+}
+
+private struct ConfettiPiece: Identifiable {
+    let id = UUID()
+    let x: CGFloat
+    let y: CGFloat
+    let rotation: Double
+    let color: Color
 }
 
 private struct TutorialRewardBurst: View {
