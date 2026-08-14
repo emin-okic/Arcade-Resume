@@ -1,5 +1,49 @@
 import SwiftUI
 
+private enum MovementTutorialStep: Equatable {
+    case moveRight
+    case moveLeft
+    case jump
+    case hitBlock
+    case complete
+
+    var instruction: String {
+        switch self {
+        case .moveRight:
+            return "Tap and hold the right side of the screen"
+        case .moveLeft:
+            return "Tap and hold the left side of the screen"
+        case .jump:
+            return "Tap above your hero to jump"
+        case .hitBlock:
+            return "Jump up into the highlighted block"
+        case .complete:
+            return "Tutorial complete"
+        }
+    }
+
+    var systemName: String {
+        switch self {
+        case .moveRight:
+            return "arrow.right"
+        case .moveLeft:
+            return "arrow.left"
+        case .jump:
+            return "arrow.up"
+        case .hitBlock:
+            return "questionmark.square.fill"
+        case .complete:
+            return "checkmark"
+        }
+    }
+}
+
+private enum TutorialGesture {
+    case left
+    case right
+    case up
+}
+
 struct ContentView: View {
     @State private var controller = PlatformerGameController()
     @State private var input = GameInput()
@@ -11,6 +55,9 @@ struct ContentView: View {
     @State private var lastScore = 0
     @State private var lastMoveFeedbackDate = Date.distantPast
     @State private var lastMoveFeedbackDirection: MoveDirection?
+    @State private var movementTutorialStep: MovementTutorialStep = .moveRight
+    @State private var rewardAnimationID = 0
+    @State private var confettiAnimationID = 0
     @FocusState private var gameHasFocus: Bool
 
     var body: some View {
@@ -26,7 +73,11 @@ struct ContentView: View {
                 .ignoresSafeArea()
 
                 if hasChosenCharacter {
-                    GameWorldView(controller: controller, viewport: viewport, character: selectedCharacter)
+                    GameWorldView(
+                        controller: controller,
+                        viewport: viewport,
+                        character: selectedCharacter
+                    )
 
                     TouchInputCaptureView(
                         input: $input,
@@ -34,30 +85,37 @@ struct ContentView: View {
                             x: controller.player.position.x - controller.cameraX,
                             y: controller.player.position.y - controller.player.size.height / 2
                         ),
-                        onJump: requestJump
+                        onJump: requestJump,
+                        onTutorialGesture: handleTutorialGesture
                     )
 
                     VStack(spacing: 0) {
-                    HUDView(
-                        score: controller.score,
-                        revealedCount: controller.revealedCount,
-                        totalCount: controller.blocks.count,
-                        progress: controller.completionProgress,
-                        onReset: resetGame
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
+                        HUDView(
+                            score: controller.score,
+                            revealedCount: controller.revealedCount,
+                            totalCount: controller.blocks.count,
+                            progress: controller.completionProgress,
+                            onReset: resetGame
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
 
-                    Spacer()
-
-                    ControlPadView(
-                        input: $input,
-                        onMoveButtonPress: playMoveButtonPress,
-                        onJump: requestJump
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
+                        Spacer()
                     }
+
+                    MovementTutorialOverlay(
+                        step: movementTutorialStep,
+                        rewardAnimationID: rewardAnimationID,
+                        viewport: viewport,
+                        playerScreenPosition: CGPoint(
+                            x: controller.player.position.x - controller.cameraX,
+                            y: controller.player.position.y - controller.player.size.height / 2
+                        ),
+                        highlightedBlockRect: firstBlockScreenRect(viewport: viewport)
+                    )
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+                    .zIndex(40)
                 } else if hasPassedTitleScreen {
                     CharacterSelectView(
                         selectedCharacter: selectedCharacter,
@@ -82,6 +140,12 @@ struct ContentView: View {
                             closeActiveExperience(playFeedback: true)
                         }
                         .position(x: viewport.width / 2, y: viewport.height / 2)
+
+                        if confettiAnimationID > 0, experience.id == "tutorial-complete" {
+                            TutorialConfettiBurst(viewport: viewport)
+                                .id(confettiAnimationID)
+                                .allowsHitTesting(false)
+                        }
                     }
                     .frame(width: viewport.width, height: viewport.height)
                     .contentShape(Rectangle())
@@ -134,6 +198,12 @@ struct ContentView: View {
         }
     }
 
+    private func firstBlockScreenRect(viewport: CGSize) -> CGRect? {
+        guard let firstBlock = controller.blocks.first else { return nil }
+        let worldRect = controller.rect(for: firstBlock, viewport: viewport)
+        return worldRect.offsetBy(dx: -controller.cameraX, dy: 0)
+    }
+
     private func showCharacterSelect() {
         hasPassedTitleScreen = true
         feedback.playBlockReveal()
@@ -150,6 +220,9 @@ struct ContentView: View {
         lastScore = controller.score
         lastMoveFeedbackDate = .distantPast
         lastMoveFeedbackDirection = nil
+        movementTutorialStep = .moveRight
+        rewardAnimationID = 0
+        confettiAnimationID = 0
         hasChosenCharacter = true
         feedback.playBlockReveal()
     }
@@ -160,15 +233,14 @@ struct ContentView: View {
         feedback.playJump()
     }
 
-    private func playMoveButtonPress() {
-        feedback.playMoveButtonPress()
-    }
-
     private func resetGame() {
         controller.reset()
         lastScore = controller.score
         lastMoveFeedbackDate = .distantPast
         lastMoveFeedbackDirection = nil
+        movementTutorialStep = .moveRight
+        rewardAnimationID = 0
+        confettiAnimationID = 0
         feedback.playReset()
     }
 
@@ -180,10 +252,43 @@ struct ContentView: View {
         }
     }
 
+    private func handleTutorialGesture(_ gesture: TutorialGesture) {
+        switch (movementTutorialStep, gesture) {
+        case (.moveRight, .right):
+            completeMovementTutorialStep(nextStep: .moveLeft, reward: .right)
+        case (.moveLeft, .left):
+            completeMovementTutorialStep(nextStep: .jump, reward: .left)
+        case (.jump, .up):
+            completeMovementTutorialStep(nextStep: .hitBlock, reward: nil)
+        default:
+            break
+        }
+    }
+
+    private func completeMovementTutorialStep(nextStep: MovementTutorialStep, reward: MoveDirection?) {
+        guard movementTutorialStep != .complete, movementTutorialStep != .hitBlock else { return }
+        rewardAnimationID += 1
+        if let reward {
+            feedback.playMoveStep(direction: reward)
+        }
+        feedback.playBlockReveal()
+
+        withAnimation(.snappy(duration: 0.24)) {
+            movementTutorialStep = nextStep
+        }
+    }
+
     private func playRevealFeedbackIfNeeded() {
         guard controller.score != lastScore else { return }
         lastScore = controller.score
         feedback.playBlockReveal()
+
+        if controller.activeExperience?.id == "tutorial-complete" {
+            withAnimation(.snappy(duration: 0.24)) {
+                movementTutorialStep = .complete
+            }
+            confettiAnimationID += 1
+        }
     }
 
     private func playLandingFeedbackIfNeeded(wasGroundedBeforeStep: Bool) {
@@ -223,12 +328,14 @@ struct ContentView: View {
         case .leftArrow:
             if keyPress.phase == .down {
                 closeActiveExperience(playFeedback: true)
+                handleTutorialGesture(.left)
             }
             input.isMovingLeft = keyPress.phase != .up
             return .handled
         case .rightArrow:
             if keyPress.phase == .down {
                 closeActiveExperience(playFeedback: true)
+                handleTutorialGesture(.right)
             }
             input.isMovingRight = keyPress.phase != .up
             return .handled
@@ -236,6 +343,7 @@ struct ContentView: View {
             if keyPress.phase == .down {
                 closeActiveExperience(playFeedback: true)
                 requestJump()
+                handleTutorialGesture(.up)
             }
             return .handled
         default:
@@ -574,7 +682,7 @@ private struct GameWorldView: View {
 
             ForEach(controller.blocks) { block in
                 QuestionBlockView(block: block)
-                    .frame(width: 48, height: 48)
+                    .frame(width: controller.blockSize.width, height: controller.blockSize.height)
                     .position(
                         x: controller.rect(for: block, viewport: viewport).midX,
                         y: controller.rect(for: block, viewport: viewport).midY
@@ -626,6 +734,37 @@ private struct GameWorldView: View {
         }
         .scaleEffect(scale)
         .position(x: x, y: y)
+    }
+}
+
+private struct TutorialPromptView: View {
+    let systemName: String
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: systemName)
+                .font(.system(size: 13, weight: .black))
+                .frame(width: 26, height: 26)
+                .background(Color.white.opacity(0.86), in: RoundedRectangle(cornerRadius: 6))
+
+            Text(text)
+                .font(.caption.weight(.black))
+                .lineLimit(nil)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .foregroundStyle(Color(red: 0.08, green: 0.13, blue: 0.2))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(width: 218, alignment: .leading)
+        .background(Color.white.opacity(0.82), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color(red: 0.08, green: 0.13, blue: 0.2).opacity(0.18), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.16), radius: 0, x: 0, y: 3)
+        .accessibilityLabel(text)
     }
 }
 
@@ -714,7 +853,7 @@ private struct HUDView: View {
     var body: some View {
         HStack(spacing: 12) {
             stat(title: "Score", value: "\(score)")
-            stat(title: "Jobs", value: "\(revealedCount)/\(totalCount)")
+            stat(title: "Blocks", value: "\(revealedCount)/\(totalCount)")
 
             ProgressView(value: progress)
                 .tint(Color(red: 0.1, green: 0.5, blue: 0.28))
@@ -768,7 +907,7 @@ private struct ExperienceDetailView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Job Description")
+                    Text(experience.id == "tutorial-complete" ? "Tutorial" : "Job Description")
                         .font(.caption2.weight(.black))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 9)
@@ -859,10 +998,270 @@ private struct ExperienceDetailView: View {
     }
 }
 
+private struct MovementTutorialOverlay: View {
+    let step: MovementTutorialStep
+    let rewardAnimationID: Int
+    let viewport: CGSize
+    let playerScreenPosition: CGPoint
+    let highlightedBlockRect: CGRect?
+
+    var body: some View {
+        ZStack {
+            if step != .complete {
+                Color.black.opacity(0.18)
+                    .ignoresSafeArea()
+
+                tapTarget
+                    .position(targetPosition)
+
+                VStack(spacing: 12) {
+                    instructionBubble
+                    AnimatedTapCue(step: step)
+                }
+                .position(instructionPosition)
+                .transition(.scale(scale: 0.92).combined(with: .opacity))
+            }
+
+            if rewardAnimationID > 0 {
+                TutorialRewardBurst()
+                    .id(rewardAnimationID)
+                    .position(x: viewport.width / 2, y: max(178, playerScreenPosition.y - 132))
+            }
+        }
+        .frame(width: viewport.width, height: viewport.height)
+        .animation(.snappy(duration: 0.24), value: step)
+    }
+
+    private var instructionBubble: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Image(systemName: step.systemName)
+                .font(.system(size: 18, weight: .black))
+                .foregroundStyle(.white)
+                .frame(width: 36, height: 36)
+                .background(Color(red: 0.08, green: 0.13, blue: 0.2), in: RoundedRectangle(cornerRadius: 8))
+
+            Text(step.instruction)
+                .font(.headline.weight(.black))
+                .foregroundStyle(Color(red: 0.08, green: 0.13, blue: 0.2))
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(width: min(viewport.width - 48, 320), alignment: .leading)
+        .background(Color.white.opacity(0.94), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color(red: 0.08, green: 0.13, blue: 0.2).opacity(0.18), lineWidth: 1.5)
+        )
+        .shadow(color: .black.opacity(0.18), radius: 0, x: 0, y: 4)
+    }
+
+    private var tapTarget: some View {
+        RoundedRectangle(cornerRadius: 8)
+            .fill(Color.white.opacity(0.24))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(.white.opacity(0.82), lineWidth: 2)
+            )
+            .frame(width: targetSize.width, height: targetSize.height)
+            .shadow(color: .black.opacity(0.16), radius: 0, x: 0, y: 4)
+    }
+
+    private var targetPosition: CGPoint {
+        switch step {
+        case .moveRight:
+            return CGPoint(x: min(viewport.width - 86, playerScreenPosition.x + 154), y: playerScreenPosition.y + 8)
+        case .moveLeft:
+            return CGPoint(x: max(86, playerScreenPosition.x - 154), y: playerScreenPosition.y + 8)
+        case .jump:
+            return CGPoint(x: playerScreenPosition.x, y: max(158, playerScreenPosition.y - 154))
+        case .hitBlock:
+            return highlightedBlockRect.map { CGPoint(x: $0.midX, y: $0.midY) } ?? playerScreenPosition
+        case .complete:
+            return playerScreenPosition
+        }
+    }
+
+    private var instructionPosition: CGPoint {
+        switch step {
+        case .moveRight:
+            return CGPoint(x: min(viewport.width - 176, playerScreenPosition.x + 170), y: max(188, playerScreenPosition.y - 126))
+        case .moveLeft:
+            return CGPoint(x: max(176, playerScreenPosition.x + 16), y: max(188, playerScreenPosition.y - 126))
+        case .jump:
+            return CGPoint(x: viewport.width / 2, y: max(202, playerScreenPosition.y - 258))
+        case .hitBlock:
+            let blockCenter = highlightedBlockRect.map { CGPoint(x: $0.midX, y: $0.midY) } ?? playerScreenPosition
+            return CGPoint(
+                x: min(max(blockCenter.x, 176), viewport.width - 176),
+                y: min(max(blockCenter.y - 132, 178), viewport.height - 150)
+            )
+        case .complete:
+            return CGPoint(x: viewport.width / 2, y: viewport.height / 2)
+        }
+    }
+
+    private var targetSize: CGSize {
+        switch step {
+        case .moveRight, .moveLeft:
+            return CGSize(width: 118, height: 118)
+        case .jump:
+            return CGSize(width: 132, height: 96)
+        case .hitBlock:
+            guard let highlightedBlockRect else { return CGSize(width: 72, height: 72) }
+            return CGSize(width: highlightedBlockRect.width + 22, height: highlightedBlockRect.height + 22)
+        case .complete:
+            return .zero
+        }
+    }
+}
+
+private struct AnimatedTapCue: View {
+    let step: MovementTutorialStep
+    @State private var isExtended = false
+
+    var body: some View {
+        ZStack {
+            Capsule()
+                .fill(Color.white.opacity(0.2))
+                .frame(width: trackSize.width, height: trackSize.height)
+
+            Image(systemName: "hand.tap.fill")
+                .font(.system(size: 36, weight: .black))
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.35), radius: 0, x: 0, y: 3)
+                .offset(isExtended ? gestureOffset : .zero)
+        }
+        .frame(width: 92, height: 68)
+        .onAppear {
+            isExtended = false
+            withAnimation(.easeInOut(duration: 0.62).repeatForever(autoreverses: true)) {
+                isExtended = true
+            }
+        }
+        .onChange(of: step) { _, _ in
+            isExtended = false
+            withAnimation(.easeInOut(duration: 0.62).repeatForever(autoreverses: true)) {
+                isExtended = true
+            }
+        }
+    }
+
+    private var gestureOffset: CGSize {
+        switch step {
+        case .moveRight:
+            return CGSize(width: 14, height: 0)
+        case .moveLeft:
+            return CGSize(width: -14, height: 0)
+        case .jump, .hitBlock:
+            return CGSize(width: 0, height: -14)
+        case .complete:
+            return .zero
+        }
+    }
+
+    private var trackSize: CGSize {
+        switch step {
+        case .moveRight, .moveLeft:
+            return CGSize(width: 72, height: 30)
+        case .jump, .hitBlock:
+            return CGSize(width: 34, height: 58)
+        case .complete:
+            return .zero
+        }
+    }
+}
+
+private struct TutorialConfettiBurst: View {
+    let viewport: CGSize
+    @State private var isExpanded = false
+    @State private var isVisible = true
+
+    private let pieces: [ConfettiPiece] = [
+        ConfettiPiece(x: -132, y: -132, rotation: -28, color: Color(red: 0.96, green: 0.25, blue: 0.31)),
+        ConfettiPiece(x: -82, y: -176, rotation: 36, color: Color(red: 0.12, green: 0.62, blue: 0.96)),
+        ConfettiPiece(x: -28, y: -146, rotation: -18, color: Color(red: 1, green: 0.78, blue: 0.2)),
+        ConfettiPiece(x: 36, y: -182, rotation: 42, color: Color(red: 0.24, green: 0.7, blue: 0.36)),
+        ConfettiPiece(x: 94, y: -138, rotation: -38, color: Color(red: 0.68, green: 0.36, blue: 0.95)),
+        ConfettiPiece(x: 142, y: -170, rotation: 22, color: Color(red: 1, green: 0.5, blue: 0.18)),
+        ConfettiPiece(x: -118, y: 126, rotation: 34, color: Color(red: 0.24, green: 0.7, blue: 0.36)),
+        ConfettiPiece(x: -52, y: 164, rotation: -44, color: Color(red: 1, green: 0.78, blue: 0.2)),
+        ConfettiPiece(x: 22, y: 142, rotation: 18, color: Color(red: 0.96, green: 0.25, blue: 0.31)),
+        ConfettiPiece(x: 88, y: 174, rotation: -26, color: Color(red: 0.12, green: 0.62, blue: 0.96)),
+        ConfettiPiece(x: 136, y: 118, rotation: 48, color: Color(red: 0.68, green: 0.36, blue: 0.95))
+    ]
+
+    var body: some View {
+        ZStack {
+            ForEach(pieces) { piece in
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(piece.color)
+                    .frame(width: 10, height: 18)
+                    .rotationEffect(.degrees(isExpanded ? piece.rotation : 0))
+                    .offset(x: isExpanded ? piece.x : 0, y: isExpanded ? piece.y : 0)
+                    .opacity(isVisible ? 1 : 0)
+            }
+        }
+        .position(x: viewport.width / 2, y: viewport.height / 2)
+        .onAppear {
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.72)) {
+                isExpanded = true
+            }
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(900))
+                withAnimation(.easeOut(duration: 0.28)) {
+                    isVisible = false
+                }
+            }
+        }
+    }
+}
+
+private struct ConfettiPiece: Identifiable {
+    let id = UUID()
+    let x: CGFloat
+    let y: CGFloat
+    let rotation: Double
+    let color: Color
+}
+
+private struct TutorialRewardBurst: View {
+    @State private var isVisible = true
+    @State private var scale: CGFloat = 0.6
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color(red: 1, green: 0.77, blue: 0.18))
+                .frame(width: 86, height: 86)
+
+            Image(systemName: "checkmark")
+                .font(.system(size: 36, weight: .black))
+                .foregroundStyle(.white)
+        }
+        .scaleEffect(scale)
+        .opacity(isVisible ? 1 : 0)
+        .shadow(color: .black.opacity(0.25), radius: 0, x: 0, y: 5)
+        .onAppear {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.56)) {
+                scale = 1
+            }
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(650))
+                withAnimation(.easeOut(duration: 0.22)) {
+                    isVisible = false
+                }
+            }
+        }
+    }
+}
+
 private struct TouchInputCaptureView: View {
     @Binding var input: GameInput
     let playerScreenPosition: CGPoint
     let onJump: () -> Void
+    let onTutorialGesture: (TutorialGesture) -> Void
     @State private var didRequestJumpDuringGesture = false
 
     var body: some View {
@@ -907,7 +1306,14 @@ private struct TouchInputCaptureView: View {
         input.isMovingLeft = isLeftOfPlayer
         input.isMovingRight = isRightOfPlayer
 
+        if isLeftOfPlayer {
+            onTutorialGesture(.left)
+        } else if isRightOfPlayer {
+            onTutorialGesture(.right)
+        }
+
         if isAbovePlayer {
+            onTutorialGesture(.up)
             requestJumpOnce()
         }
     }
@@ -916,59 +1322,6 @@ private struct TouchInputCaptureView: View {
         guard !didRequestJumpDuringGesture else { return }
         onJump()
         didRequestJumpDuringGesture = true
-    }
-}
-
-private struct ControlPadView: View {
-    @Binding var input: GameInput
-    let onMoveButtonPress: () -> Void
-    let onJump: () -> Void
-
-    var body: some View {
-        HStack {
-            HStack(spacing: 10) {
-                holdButton(systemName: "arrow.left", accessibilityLabel: "Move left") { isPressed in
-                    if isPressed && !input.isMovingLeft {
-                        onMoveButtonPress()
-                    }
-                    input.isMovingLeft = isPressed
-                }
-                holdButton(systemName: "arrow.right", accessibilityLabel: "Move right") { isPressed in
-                    if isPressed && !input.isMovingRight {
-                        onMoveButtonPress()
-                    }
-                    input.isMovingRight = isPressed
-                }
-            }
-
-            Spacer()
-
-            Button(action: onJump) {
-                Image(systemName: "arrow.up")
-                    .font(.system(size: 24, weight: .black))
-                    .frame(width: 64, height: 54)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(Color(red: 0.9, green: 0.2, blue: 0.2))
-            .accessibilityLabel("Jump")
-        }
-    }
-
-    private func holdButton(systemName: String, accessibilityLabel: String, onPressChanged: @escaping (Bool) -> Void) -> some View {
-        Image(systemName: systemName)
-            .font(.system(size: 24, weight: .black))
-            .frame(width: 64, height: 54)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(.white.opacity(0.45), lineWidth: 1)
-            )
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in onPressChanged(true) }
-                    .onEnded { _ in onPressChanged(false) }
-            )
-            .accessibilityLabel(accessibilityLabel)
     }
 }
 

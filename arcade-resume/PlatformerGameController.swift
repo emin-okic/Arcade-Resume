@@ -48,13 +48,16 @@ final class PlatformerGameController {
     private let jumpVelocity: CGFloat = -650
     private let floorFriction: CGFloat = 0.82
 
+    let blockSize = CGSize(width: 56, height: 56)
+
     init(experiences: [ResumeExperience] = ResumeExperience.all) {
-        self.worldWidth = max(900, CGFloat(experiences.count) * 260 + 220)
-        self.blocks = experiences.enumerated().map { index, experience in
+        let levelExperiences = [Self.tutorialCompleteExperience] + experiences
+        self.worldWidth = max(1_040, CGFloat(levelExperiences.count) * 272 + 260)
+        self.blocks = levelExperiences.enumerated().map { index, experience in
             QuestionBlock(
                 id: experience.id,
                 experience: experience,
-                x: 190 + CGFloat(index) * 260,
+                x: 224 + CGFloat(index) * 272,
                 isRevealed: false
             )
         }
@@ -131,8 +134,23 @@ final class PlatformerGameController {
     }
 
     func rect(for block: QuestionBlock, viewport: CGSize) -> CGRect {
-        CGRect(x: block.x, y: groundY(for: viewport) - 196, width: 48, height: 48)
+        CGRect(x: block.x, y: groundY(for: viewport) - 204, width: blockSize.width, height: blockSize.height)
     }
+
+    private static let tutorialCompleteExperience = ResumeExperience(
+        id: "tutorial-complete",
+        title: "Tutorial Complete",
+        organization: "Resume unlocked",
+        location: "Tap controls",
+        period: "Nice work",
+        summary: "Congrats, you completed the movement tutorial. The next blocks reveal my resume experience.",
+        responsibilities: [
+            "Tap left or right of the hero to move across the level.",
+            "Tap above the hero to jump into question blocks.",
+            "Keep moving right to open each resume block."
+        ],
+        skills: ["Tap to move", "Jump", "Resume"]
+    )
 
     private func resolveBlockHits(viewport: CGSize) {
         guard player.velocity.dy < 0 else { return }
