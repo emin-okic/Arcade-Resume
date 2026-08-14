@@ -9,9 +9,9 @@ private enum MovementTutorialStep: Equatable {
     var instruction: String {
         switch self {
         case .moveRight:
-            return "Tap the right side to move right"
+            return "Tap and hold the right side of the screen"
         case .moveLeft:
-            return "Tap the left side to move left"
+            return "Tap and hold the left side of the screen"
         case .jump:
             return "Tap above your hero to jump"
         case .complete:
@@ -656,18 +656,6 @@ private struct GameWorldView: View {
 
             if showsIntroPrompts {
                 TutorialPromptView(
-                    systemName: "hand.tap.fill",
-                    text: "Tap left or right of your hero to walk"
-                )
-                .position(x: 172, y: controller.groundY(for: viewport) - 118)
-
-                TutorialPromptView(
-                    systemName: "hand.point.up.left.fill",
-                    text: "Tap above your hero to jump"
-                )
-                .position(x: 174, y: controller.groundY(for: viewport) - 238)
-
-                TutorialPromptView(
                     systemName: "checkmark.seal.fill",
                     text: "Hit the first block to finish the tutorial"
                 )
@@ -1042,12 +1030,12 @@ private struct MovementTutorialOverlay: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .frame(width: min(viewport.width - 48, 320), alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .background(Color.white.opacity(0.94), in: RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(.white.opacity(0.7), lineWidth: 1.5)
+                .stroke(Color(red: 0.08, green: 0.13, blue: 0.2).opacity(0.18), lineWidth: 1.5)
         )
-        .shadow(color: .black.opacity(0.26), radius: 0, x: 0, y: 5)
+        .shadow(color: .black.opacity(0.18), radius: 0, x: 0, y: 4)
     }
 
     private var tapTarget: some View {
@@ -1101,27 +1089,54 @@ private struct MovementTutorialOverlay: View {
 
 private struct AnimatedTapCue: View {
     let step: MovementTutorialStep
+    @State private var isExtended = false
 
     var body: some View {
-        TimelineView(.animation) { timeline in
-            let phase = sin(timeline.date.timeIntervalSinceReferenceDate * 5)
+        ZStack {
+            Capsule()
+                .fill(Color.white.opacity(0.2))
+                .frame(width: trackSize.width, height: trackSize.height)
+
             Image(systemName: "hand.tap.fill")
                 .font(.system(size: 36, weight: .black))
                 .foregroundStyle(.white)
                 .shadow(color: .black.opacity(0.35), radius: 0, x: 0, y: 3)
-                .offset(x: gestureOffset.width * phase, y: gestureOffset.height * phase)
+                .offset(isExtended ? gestureOffset : .zero)
         }
-        .frame(width: 76, height: 58)
+        .frame(width: 92, height: 68)
+        .onAppear {
+            isExtended = false
+            withAnimation(.easeInOut(duration: 0.62).repeatForever(autoreverses: true)) {
+                isExtended = true
+            }
+        }
+        .onChange(of: step) { _, _ in
+            isExtended = false
+            withAnimation(.easeInOut(duration: 0.62).repeatForever(autoreverses: true)) {
+                isExtended = true
+            }
+        }
     }
 
     private var gestureOffset: CGSize {
         switch step {
         case .moveRight:
-            return CGSize(width: 12, height: 0)
+            return CGSize(width: 14, height: 0)
         case .moveLeft:
-            return CGSize(width: -12, height: 0)
+            return CGSize(width: -14, height: 0)
         case .jump:
-            return CGSize(width: 0, height: -12)
+            return CGSize(width: 0, height: -14)
+        case .complete:
+            return .zero
+        }
+    }
+
+    private var trackSize: CGSize {
+        switch step {
+        case .moveRight, .moveLeft:
+            return CGSize(width: 72, height: 30)
+        case .jump:
+            return CGSize(width: 34, height: 58)
         case .complete:
             return .zero
         }
