@@ -137,6 +137,10 @@ final class PlatformerGameController {
         CGRect(x: block.x, y: groundY(for: viewport) - 204, width: blockSize.width, height: blockSize.height)
     }
 
+    func tunnelRect(viewport: CGSize) -> CGRect {
+        CGRect(x: worldWidth - 150, y: groundY(for: viewport) - 132, width: 116, height: 132)
+    }
+
     private static let tutorialCompleteExperience = ResumeExperience(
         id: "tutorial-complete",
         title: "Tutorial Complete",

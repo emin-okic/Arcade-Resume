@@ -58,6 +58,9 @@ struct ContentView: View {
     @State private var movementTutorialStep: MovementTutorialStep = .moveRight
     @State private var rewardAnimationID = 0
     @State private var confettiAnimationID = 0
+    @State private var isShowingCredits = false
+    @State private var isShowingCharacterChangePrompt = false
+    @State private var hasPromptedForCharacterChange = false
     @FocusState private var gameHasFocus: Bool
 
     var body: some View {
@@ -131,6 +134,25 @@ struct ContentView: View {
                         .zIndex(220)
                 }
 
+                if hasChosenCharacter, isShowingCharacterChangePrompt {
+                    CharacterChangePromptView(
+                        viewport: viewport,
+                        character: selectedCharacter,
+                        onChangeCharacter: returnToCharacterSelect,
+                        onContinue: dismissCharacterChangePrompt
+                    )
+                    .frame(width: viewport.width, height: viewport.height)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(170)
+                }
+
+                if hasChosenCharacter, isShowingCredits {
+                    CreditsView(viewport: viewport, onBackToStart: returnToStartScreen)
+                        .frame(width: viewport.width, height: viewport.height)
+                        .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                        .zIndex(180)
+                }
+
                 if hasChosenCharacter, let experience = controller.activeExperience {
                     ZStack {
                         Color.black.opacity(0.34)
@@ -189,6 +211,7 @@ struct ContentView: View {
                     playRevealFeedbackIfNeeded()
                     playLandingFeedbackIfNeeded(wasGroundedBeforeStep: wasGroundedBeforeStep)
                     playMoveFeedbackIfNeeded(at: now)
+                    handleWorldTriggers(viewport: viewport)
                     input.jumpRequested = false
 
                     try? await Task.sleep(for: .milliseconds(16))
@@ -223,6 +246,9 @@ struct ContentView: View {
         movementTutorialStep = .moveRight
         rewardAnimationID = 0
         confettiAnimationID = 0
+        isShowingCredits = false
+        isShowingCharacterChangePrompt = false
+        hasPromptedForCharacterChange = false
         hasChosenCharacter = true
         feedback.playBlockReveal()
     }
@@ -241,6 +267,9 @@ struct ContentView: View {
         movementTutorialStep = .moveRight
         rewardAnimationID = 0
         confettiAnimationID = 0
+        isShowingCredits = false
+        isShowingCharacterChangePrompt = false
+        hasPromptedForCharacterChange = false
         feedback.playReset()
     }
 
@@ -249,6 +278,85 @@ struct ContentView: View {
         controller.selectExperience(nil)
         if playFeedback {
             feedback.playClose()
+        }
+    }
+
+    private func returnToStartScreen() {
+        controller.reset()
+        input = GameInput()
+        lastScore = controller.score
+        lastMoveFeedbackDate = .distantPast
+        lastMoveFeedbackDirection = nil
+        movementTutorialStep = .moveRight
+        rewardAnimationID = 0
+        confettiAnimationID = 0
+        isShowingCredits = false
+        isShowingCharacterChangePrompt = false
+        hasPromptedForCharacterChange = false
+        hasChosenCharacter = false
+        hasPassedTitleScreen = false
+        feedback.playReset()
+    }
+
+    private func returnToCharacterSelect() {
+        controller.reset()
+        input = GameInput()
+        lastScore = controller.score
+        lastMoveFeedbackDate = .distantPast
+        lastMoveFeedbackDirection = nil
+        movementTutorialStep = .moveRight
+        rewardAnimationID = 0
+        confettiAnimationID = 0
+        isShowingCredits = false
+        isShowingCharacterChangePrompt = false
+        hasPromptedForCharacterChange = false
+        hasChosenCharacter = false
+        hasPassedTitleScreen = true
+        feedback.playClose()
+    }
+
+    private func dismissCharacterChangePrompt() {
+        isShowingCharacterChangePrompt = false
+        feedback.playClose()
+    }
+
+    private func closeTutorialOverlayIfPlayerPassedFirstBlock(viewport: CGSize) {
+        guard movementTutorialStep != .complete,
+              let firstBlock = controller.blocks.first,
+              !firstBlock.isRevealed else { return }
+
+        let firstBlockRect = controller.rect(for: firstBlock, viewport: viewport)
+        let hasPassedFirstBlock = controller.player.position.x > firstBlockRect.maxX + controller.player.size.width
+        guard hasPassedFirstBlock else { return }
+
+        withAnimation(.snappy(duration: 0.2)) {
+            movementTutorialStep = .complete
+        }
+    }
+
+    private func handleWorldTriggers(viewport: CGSize) {
+        guard controller.activeExperience == nil, !isShowingCredits else { return }
+
+        closeTutorialOverlayIfPlayerPassedFirstBlock(viewport: viewport)
+
+        if movementTutorialStep == .complete,
+           controller.player.rect.intersects(controller.tunnelRect(viewport: viewport)) {
+            isShowingCredits = true
+            input = GameInput()
+            feedback.playBlockReveal()
+            return
+        }
+
+        let isAtLeftEdge = controller.player.position.x <= controller.player.size.width / 2 + 4
+        if movementTutorialStep == .complete,
+           isAtLeftEdge,
+           input.isMovingLeft,
+           !hasPromptedForCharacterChange,
+           !isShowingCharacterChangePrompt {
+            hasPromptedForCharacterChange = true
+            isShowingCharacterChangePrompt = true
+            input = GameInput()
+            feedback.playMoveButtonPress()
         }
     }
 
@@ -669,6 +777,93 @@ private struct CharacterTokenView: View {
     }
 }
 
+private struct CharacterChangePromptView: View {
+    let viewport: CGSize
+    let character: PlayableCharacter
+    let onChangeCharacter: () -> Void
+    let onContinue: () -> Void
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            Color.black.opacity(0.28)
+                .ignoresSafeArea()
+                .onTapGesture(perform: onContinue)
+
+            VStack(spacing: 16) {
+                Capsule()
+                    .fill(Color(red: 0.68, green: 0.76, blue: 0.84))
+                    .frame(width: 44, height: 5)
+                    .padding(.top, 10)
+
+                HStack(alignment: .center, spacing: 14) {
+                    ZStack(alignment: .bottom) {
+                        Ellipse()
+                            .fill(.black.opacity(0.18))
+                            .frame(width: 72, height: 13)
+                            .offset(y: 5)
+
+                        Image(character.portraitName)
+                            .interpolation(.none)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 86, height: 86)
+                            .mask(Rectangle().padding(.bottom, 10))
+                    }
+                    .frame(width: 92, height: 92)
+                    .background(character.accentColor.opacity(0.18), in: RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(character.accentColor.opacity(0.75), lineWidth: 2)
+                    )
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Change Hero?")
+                            .font(.system(.title3, design: .rounded, weight: .black))
+                            .foregroundStyle(Color(red: 0.08, green: 0.13, blue: 0.2))
+
+                        Text("You returned to the start. Pick a different character or keep running with \(character.name).")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color(red: 0.34, green: 0.41, blue: 0.5))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack(spacing: 10) {
+                    Button(action: onContinue) {
+                        Label("Keep Playing", systemImage: "play.fill")
+                            .font(.subheadline.weight(.black))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color(red: 0.08, green: 0.13, blue: 0.2))
+                    .background(Color(red: 0.9, green: 0.95, blue: 1), in: RoundedRectangle(cornerRadius: 8))
+
+                    Button(action: onChangeCharacter) {
+                        Label("Change", systemImage: "person.crop.circle.fill")
+                            .font(.subheadline.weight(.black))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.white)
+                    .background(Color(red: 0.12, green: 0.22, blue: 0.36), in: RoundedRectangle(cornerRadius: 8))
+                }
+            }
+            .padding(.horizontal, 18)
+            .padding(.bottom, max(18, viewport.height * 0.025))
+            .frame(width: min(430, viewport.width), alignment: .bottom)
+            .background(Color.white, in: UnevenRoundedRectangle(topLeadingRadius: 18, topTrailingRadius: 18))
+            .overlay(alignment: .top) {
+                UnevenRoundedRectangle(topLeadingRadius: 18, topTrailingRadius: 18)
+                    .stroke(Color.white.opacity(0.7), lineWidth: 1.5)
+            }
+            .shadow(color: .black.opacity(0.32), radius: 24, x: 0, y: -8)
+        }
+    }
+}
+
 private struct GameWorldView: View {
     let controller: PlatformerGameController
     let viewport: CGSize
@@ -692,6 +887,13 @@ private struct GameWorldView: View {
                         controller.selectExperience(block.experience)
                     }
             }
+
+            EndTunnelView()
+                .frame(width: controller.tunnelRect(viewport: viewport).width, height: controller.tunnelRect(viewport: viewport).height)
+                .position(
+                    x: controller.tunnelRect(viewport: viewport).midX,
+                    y: controller.tunnelRect(viewport: viewport).midY
+                )
 
             PlayerView(player: controller.player, character: character)
                 .frame(width: controller.player.size.width, height: controller.player.size.height)
@@ -734,6 +936,170 @@ private struct GameWorldView: View {
         }
         .scaleEffect(scale)
         .position(x: x, y: y)
+    }
+}
+
+private struct EndTunnelView: View {
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            let time = timeline.date.timeIntervalSinceReferenceDate
+            let pulse = 0.5 + sin(time * 3.2) * 0.5
+            let ringLift = sin(time * 2.4) * 3
+
+            ZStack(alignment: .bottom) {
+                Capsule()
+                    .fill(.black.opacity(0.22))
+                    .frame(width: 126, height: 18)
+                    .offset(y: 8)
+
+                TunnelArch()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.08, green: 0.1, blue: 0.18),
+                                Color(red: 0.18, green: 0.12, blue: 0.3),
+                                Color(red: 0.07, green: 0.08, blue: 0.13)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .overlay(
+                        TunnelArch()
+                            .stroke(Color(red: 0.78, green: 0.9, blue: 1).opacity(0.75), lineWidth: 3)
+                    )
+                    .shadow(color: Color(red: 0.2, green: 0.72, blue: 1).opacity(0.35 + pulse * 0.22), radius: 12, x: 0, y: 0)
+
+                TunnelArch()
+                    .inset(by: 13)
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color(red: 0.62, green: 0.95, blue: 1).opacity(0.95),
+                                Color(red: 0.25, green: 0.36, blue: 0.88).opacity(0.82),
+                                Color(red: 0.05, green: 0.06, blue: 0.16)
+                            ],
+                            center: .center,
+                            startRadius: 4,
+                            endRadius: 72
+                        )
+                    )
+                    .overlay(
+                        VStack(spacing: 9) {
+                            ForEach(0..<4, id: \.self) { index in
+                                Capsule()
+                                    .stroke(Color.white.opacity(0.18 + pulse * 0.16), lineWidth: 2)
+                                    .frame(width: CGFloat(64 - index * 10), height: CGFloat(16 + index * 5))
+                                    .offset(y: CGFloat(index) * 3 + ringLift)
+                            }
+                        }
+                        .padding(.top, 24)
+                        .mask(TunnelArch().inset(by: 14))
+                    )
+
+                VStack(spacing: 3) {
+                    Text("FINISH")
+                        .font(.system(size: 10, weight: .black, design: .rounded))
+                        .foregroundStyle(Color(red: 0.92, green: 0.98, blue: 1))
+                    Rectangle()
+                        .fill(Color(red: 0.5, green: 0.86, blue: 1).opacity(0.8))
+                        .frame(width: 42, height: 3)
+                }
+                .padding(.bottom, 9)
+            }
+        }
+        .accessibilityLabel("Finish tunnel")
+    }
+}
+
+private struct TunnelArch: InsettableShape {
+    var insetAmount: CGFloat = 0
+
+    func path(in rect: CGRect) -> Path {
+        let rect = rect.insetBy(dx: insetAmount, dy: insetAmount)
+        let radius = rect.width / 2
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + radius))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX, y: rect.minY + radius),
+            control: CGPoint(x: rect.midX, y: rect.minY - radius * 0.55)
+        )
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.closeSubpath()
+        return path
+    }
+
+    func inset(by amount: CGFloat) -> TunnelArch {
+        var shape = self
+        shape.insetAmount += amount
+        return shape
+    }
+}
+
+private struct CreditsView: View {
+    let viewport: CGSize
+    let onBackToStart: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.48)
+                .ignoresSafeArea()
+
+            VStack(spacing: 18) {
+                Spacer(minLength: 28)
+
+                VStack(spacing: 12) {
+                    Text("Credits")
+                        .font(.system(size: 34, weight: .black, design: .rounded))
+                        .foregroundStyle(Color(red: 0.08, green: 0.13, blue: 0.2))
+
+                    Text("Emin Okic")
+                        .font(.title3.weight(.black))
+                        .foregroundStyle(Color(red: 0.12, green: 0.35, blue: 0.66))
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Label("emin.okic1729@gmail.com", systemImage: "envelope.fill")
+                        Label("310-876-7681", systemImage: "phone.fill")
+                        if let githubURL = URL(string: "https://github.com/emin-okic") {
+                            Link(destination: githubURL) {
+                                Label("github.com/emin-okic", systemImage: "link")
+                            }
+                        }
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color(red: 0.08, green: 0.13, blue: 0.2))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 4)
+                }
+                .padding(22)
+                .frame(width: min(350, viewport.width - 40))
+                .background(Color.white, in: RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color(red: 0.78, green: 0.86, blue: 0.94), lineWidth: 1.5)
+                )
+                .shadow(color: .black.opacity(0.32), radius: 24, x: 0, y: 14)
+
+                Spacer(minLength: 18)
+
+                Button(action: onBackToStart) {
+                    Label("Back to Start", systemImage: "house.fill")
+                        .font(.headline.weight(.black))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: min(350, viewport.width - 40))
+                        .padding(.vertical, 13)
+                }
+                .buttonStyle(.plain)
+                .background(Color(red: 0.12, green: 0.22, blue: 0.36), in: RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(.white.opacity(0.45), lineWidth: 1.5)
+                )
+                .padding(.bottom, 26)
+            }
+            .padding(.horizontal, 20)
+        }
     }
 }
 
